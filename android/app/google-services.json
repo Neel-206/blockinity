@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "124752052708",
+    "firebase_url": "https://blockinity-f0eec-default-rtdb.firebaseio.com",
+    "project_id": "blockinity-f0eec",
+    "storage_bucket": "blockinity-f0eec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:124752052708:android:ef7b7d6bc0764919b507f1",
+        "android_client_info": {
+          "package_name": "com.example.blockinity"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "124752052708-sbau3hj5lmll4b07f1du6jodeu0lkd84.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC42usIa3ip0g1Iwn2BCx4xwAVl6oeQ5mU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "124752052708-sbau3hj5lmll4b07f1du6jodeu0lkd84.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
