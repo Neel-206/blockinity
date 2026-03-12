@@ -33,7 +33,10 @@ class AuthController extends GetxController {
   Future<void> register({required String name, required String email, required String password}) async {
     try {
       isLoading.value = true;
-      await _authService.register(email: email, password: password, name: name);
+      final user = await _authService.register(email: email, password: password, name: name);
+      if (user != null) {
+        Get.offAllNamed(AppRoutes.home);
+      }
     } catch (e) {
       Get.snackbar('Registration Failed', e.toString());
     } finally {
@@ -53,9 +56,10 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
 
-      await _authService.signInWithGoogle();
-
-      Get.offAllNamed(AppRoutes.home);
+      final user = await _authService.signInWithGoogle();
+      if (user != null) {
+        Get.offAllNamed(AppRoutes.home);
+      }
     } catch (e) {
       Get.snackbar(
         "Google Sign-In Failed",

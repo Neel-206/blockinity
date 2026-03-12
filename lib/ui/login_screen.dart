@@ -1,3 +1,4 @@
+import 'package:blockinity/Controller/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../theme/app_colors.dart';
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _keepMeSignedIn = false;
+  final AuthController _authController = Get.find<AuthController>();
 
   @override
   void dispose() {
@@ -161,15 +163,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(
                         height: 60,
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              // Perform login action
-                              Get.offNamed('/home');
-                            }
-                          },
-                          child: const Text('LET\'S PLAY!', style: TextStyle(fontSize: 16)),
-                        ),
+                        child: Obx(() => ElevatedButton(
+                          onPressed: _authController.isLoading.value 
+                            ? null 
+                            : () {
+                                if (_formKey.currentState!.validate()) {
+                                  _authController.login(
+                                    email: _emailController.text.trim(),
+                                    password: _passwordController.text.trim(),
+                                  );
+                                }
+                              },
+                          child: _authController.isLoading.value 
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Text('LET\'S PLAY!', style: TextStyle(fontSize: 16)),
+                        )),
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -207,12 +219,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: _buildSocialButton(
-                              icon: Icons.g_mobiledata_rounded,
-                              label: 'Google',
-                              color: Colors.white,
-                              textColor: AppColors.navyTitle,
-                              isGoogle: true,
+                            child: InkWell(
+                              onTap: () => _authController.signInWithGoogle(),
+                              child: _buildSocialButton(
+                                icon: Icons.g_mobiledata_rounded,
+                                label: 'Google',
+                                color: Colors.white,
+                                textColor: AppColors.navyTitle,
+                                isGoogle: true,
+                              ),
                             ),
                           ),
                           // const SizedBox(width: 16),

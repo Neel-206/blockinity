@@ -1,17 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? get currentUser => _auth.currentUser;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  Future<void>? _googleInit;
-
-  Future<void> _ensureGoogleInitialized() async {
-    _googleInit ??= _googleSignIn.initialize();
-    await _googleInit;
-  }
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -21,7 +16,17 @@ class AuthService {
         email: email,
         password: password,
       );
-      return cred.user;
+      final user = cred.user;
+      if (user != null) {
+        try {
+          await _db.child('Users/${user.uid}/profile').update({
+            'lastLogin': DateTime.now().millisecondsSinceEpoch,
+          });
+        } catch (e) {
+          debugPrint('Failed to update last login: $e');
+        }
+      }
+      return user;
     } on FirebaseAuthException catch (e) {
       throw Exception(e.message ?? 'Login failed');
     } catch (e) {
@@ -41,6 +46,20 @@ class AuthService {
         try {
           await user.updateDisplayName(name);
         } catch (_) {}
+        
+        // Save user profile to database under "Users" node
+        try {
+          await _db.child('Users/${user.uid}/profile').set({
+            'name': name,
+            'email': email,
+            'provider': 'email',
+            'createdAt': DateTime.now().millisecondsSinceEpoch,
+            'lastLogin': DateTime.now().millisecondsSinceEpoch,
+          });
+        } catch (e) {
+          debugPrint('Failed to save user profile: $e');
+        }
+
         try {
           await user.sendEmailVerification();
         } catch (_) {}
@@ -80,9 +99,13 @@ class AuthService {
 
   Future<User?> signInWithGoogle() async {
     try {
-      await _ensureGoogleInitialized();
       final googleUser = await _googleSignIn.authenticate();
+
       final googleAuth = googleUser.authentication;
+
+      if (googleAuth.idToken == null) {
+        throw Exception('Google ID Token is null. Please check your Firebase/Google configuration.');
+      }
 
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
@@ -92,17 +115,26 @@ class AuthService {
       final user = userCredential.user;
       if (user == null) throw Exception('Google sign-in failed');
 
-      // Save user profile if new/updated — ignore DB errors but log them.
+      // Check if user exists to prevent overwriting existing data and ensure createdAt is set.
       try {
-        await _db.child('users/${user.uid}/profile').update({
-          'name': user.displayName ?? '',
-          'email': user.email ?? '',
-          'provider': 'google',
-          'lastLogin': DateTime.now().millisecondsSinceEpoch,
-        });
+        final profileRef = _db.child('Users/${user.uid}/profile');
+        final snapshot = await profileRef.get();
+
+        if (snapshot.exists) {
+          await profileRef.update({
+            'lastLogin': DateTime.now().millisecondsSinceEpoch,
+          });
+        } else {
+          await profileRef.set({
+            'name': user.displayName ?? '',
+            'email': user.email ?? '',
+            'provider': 'google',
+            'createdAt': DateTime.now().millisecondsSinceEpoch,
+            'lastLogin': DateTime.now().millisecondsSinceEpoch,
+          });
+        }
       } catch (e) {
-        // ignore: avoid_print
-        print('Failed to save user profile: $e');
+        debugPrint('Failed to save user profile: $e');
       }
 
       return user;
@@ -112,7 +144,16 @@ class AuthService {
       throw Exception('Google sign-in failed: $e');
     }
   }
+
+  Future<bool> userExistsInDatabase(String uid) async {
+    try {
+      final snapshot = await _db.child('Users/$uid/profile').get();
+      return snapshot.exists;
+    } catch (e) {
+      debugPrint('Error checking user existence: $e');
+      return false;
+    }
+  }
 }
 
   
-

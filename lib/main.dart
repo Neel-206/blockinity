@@ -1,4 +1,5 @@
 import 'package:blockinity/theme/app_theme.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:blockinity/binding/Inistial_biniding.dart';
 import 'package:blockinity/firebase_options.dart';
 import 'package:blockinity/routes/app_pages.dart';
@@ -11,6 +12,11 @@ import 'package:get/get.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await GoogleSignIn.instance.initialize();
+  } catch (e) {
+    debugPrint('GoogleSignIn initialization failed: $e');
+  }
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const MyApp());
 }
@@ -25,7 +31,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       supportedLocales: const [Locale('en')],
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.splash,
       getPages: AppPages.pages,
       initialBinding: InistialBiniding(),
     );

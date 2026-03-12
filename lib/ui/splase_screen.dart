@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:blockinity/Services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
@@ -26,6 +26,7 @@ class _SplaseScreenState extends State<SplaseScreen>
   late Animation<double> loadingFade;
 
   double progress = 0;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -94,9 +95,20 @@ class _SplaseScreenState extends State<SplaseScreen>
     Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (progress >= 1) {
         timer.cancel();
-        // Navigate to Login after loading
-        Future.delayed(const Duration(milliseconds: 500), () {
-          Get.offNamed(AppRoutes.login);
+        // Check if user is already logged in
+        Future.delayed(const Duration(milliseconds: 500), () async {
+          final user = _authService.currentUser;
+          if (user != null) {
+            final exists = await _authService.userExistsInDatabase(user.uid);
+            if (exists) {
+              Get.offAllNamed(AppRoutes.home);
+            } else {
+              await _authService.logout();
+              Get.offAllNamed(AppRoutes.login);
+            }
+          } else {
+            Get.offAllNamed(AppRoutes.login);
+          }
         });
       } else {
         setState(() {

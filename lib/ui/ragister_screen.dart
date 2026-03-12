@@ -1,3 +1,4 @@
+import 'package:blockinity/Controller/auth_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -15,6 +16,7 @@ class _RagisterScreenState extends State<RagisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  final AuthController _authController = Get.find<AuthController>();
 
   @override
   void dispose() {
@@ -138,24 +140,30 @@ class _RagisterScreenState extends State<RagisterScreen> {
                           SizedBox(
                             height: 60,
                             width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  // Perform registration logic
-                                  Get.snackbar(
-                                    'Account Created',
-                                    'Welcome, ${_nameController.text}!',
-                                    snackPosition: SnackPosition.BOTTOM,
-                                    backgroundColor: Colors.green,
-                                    colorText: Colors.white,
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'CREATE ACCOUNT',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ),
+                            child: Obx(() => ElevatedButton(
+                              onPressed: _authController.isLoading.value
+                                  ? null
+                                  : () {
+                                      if (_formKey.currentState!.validate()) {
+                                        _authController.register(
+                                          name: _nameController.text.trim(),
+                                          email: _emailController.text.trim(),
+                                          password: _passwordController.text.trim(),
+                                        );
+                                      }
+                                    },
+                              child: _authController.isLoading.value
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : const Text(
+                                      'CREATE ACCOUNT',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                            )),
                           ),
                           const SizedBox(height: 20),
                           Row(
@@ -184,12 +192,15 @@ class _RagisterScreenState extends State<RagisterScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSocialButton(
-                                  icon: Icons.g_mobiledata_rounded,
-                                  label: 'Sign Up with Google',
-                                  color: Colors.white,
-                                  textColor: AppColors.navyTitle,
-                                  isGoogle: true,
+                                child: InkWell(
+                                  onTap: () => _authController.signInWithGoogle(),
+                                  child: _buildSocialButton(
+                                    icon: Icons.g_mobiledata_rounded,
+                                    label: 'Sign Up with Google',
+                                    color: Colors.white,
+                                    textColor: AppColors.navyTitle,
+                                    isGoogle: true,
+                                  ),
                                 ),
                               ),
                               // const SizedBox(width: 16),
