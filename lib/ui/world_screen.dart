@@ -1,5 +1,7 @@
+import 'package:blockinity/Controller/level_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 enum WorldStatus { unlocked, active, locked, comingSoon }
@@ -32,22 +34,23 @@ class WorldScreen extends StatefulWidget {
 }
 
 class _WorldScreenState extends State<WorldScreen> {
-  final List<WorldModel> worldsData = [
+  final List<WorldModel> _rawWorldsData = [
     WorldModel(
       title: 'World 1',
       subtitle: 'Neon Forest',
-      currentLevel: 15,
+      currentLevel: 0,
       totalLevels: 20,
-      status: WorldStatus.unlocked,
+      status: WorldStatus.active,
       themeColor: const Color(0xff27AE60),
     ),
     WorldModel(
       title: 'World 2',
       subtitle: 'Crystal Peaks',
-      currentLevel: 8,
+      currentLevel: 0,
       totalLevels: 20,
-      status: WorldStatus.active,
+      status: WorldStatus.locked,
       themeColor: const Color(0xff4A5AE0),
+      unlockLevel: 20,
     ),
     WorldModel(
       title: 'World 3',
@@ -68,6 +71,48 @@ class _WorldScreenState extends State<WorldScreen> {
     ),
   ];
 
+  List<WorldModel> get worldsData {
+    List<WorldModel> processed = [];
+    final LevelController levelController = Get.find<LevelController>();
+
+    for (var i = 0; i < _rawWorldsData.length; i++) {
+      var world = _rawWorldsData[i];
+      if (world.status == WorldStatus.comingSoon) {
+        processed.add(world);
+        continue;
+      }
+
+      int worldProgress = levelController.getProgressForWorld(i);
+      
+      WorldStatus dynamicStatus;
+      bool previousWorldCleared = i == 0 || 
+          (levelController.getProgressForWorld(i - 1) >= _rawWorldsData[i-1].totalLevels);
+
+      if (previousWorldCleared) {
+        if (worldProgress >= world.totalLevels && world.totalLevels > 0) {
+          dynamicStatus = WorldStatus.unlocked;
+        } else {
+          dynamicStatus = WorldStatus.active;
+        }
+      } else {
+        dynamicStatus = WorldStatus.locked;
+      }
+
+      processed.add(
+        WorldModel(
+          title: world.title,
+          subtitle: world.subtitle,
+          currentLevel: worldProgress,
+          totalLevels: world.totalLevels,
+          status: dynamicStatus,
+          themeColor: world.themeColor,
+          unlockLevel: world.unlockLevel,
+        ),
+      );
+    }
+    return processed;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,17 +124,19 @@ class _WorldScreenState extends State<WorldScreen> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                child: Column(
-                  children: [
-                    for (var world in worldsData) _buildWorldCard(world),
-                  ],
-                ),
+                child: Obx(() {
+                  return Column(
+                    children: [
+                      for (int i = 0; i < worldsData.length; i++)
+                        _buildWorldCard(worldsData[i], i),
+                    ],
+                  );
+                }),
               ),
             ),
           ],
         ),
       ),
-     // bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -100,12 +147,15 @@ class _WorldScreenState extends State<WorldScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xff1E293B)),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xff1E293B),
+            ),
           ),
           Expanded(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.only(right: 48), // Precise alignment
+                padding: const EdgeInsets.only(right: 48),
                 child: Text(
                   'EXPLORE WORLDS',
                   style: GoogleFonts.sourGummy(
@@ -124,7 +174,7 @@ class _WorldScreenState extends State<WorldScreen> {
     );
   }
 
-  Widget _buildWorldCard(WorldModel world) {
+  Widget _buildWorldCard(WorldModel world, int index) {
     if (world.status == WorldStatus.comingSoon) {
       return _buildComingSoonCard();
     }
@@ -193,7 +243,8 @@ class _WorldScreenState extends State<WorldScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Progress',
@@ -219,7 +270,7 @@ class _WorldScreenState extends State<WorldScreen> {
                             ),
                           ),
                           const SizedBox(width: 20),
-                          _buildActionButton(world),
+                          _buildActionButton(world, index),
                         ],
                       ),
                     ],
@@ -227,7 +278,8 @@ class _WorldScreenState extends State<WorldScreen> {
                 ),
               ],
             ),
-            if (world.status == WorldStatus.locked) _buildLockedOverlay(world),
+            if (world.status == WorldStatus.locked)
+              _buildLockedOverlay(world, index),
           ],
         ),
       ),
@@ -261,7 +313,8 @@ class _WorldScreenState extends State<WorldScreen> {
   }
 
   Widget _buildProgressBar(WorldModel world) {
-    double progress = world.currentLevel / (world.totalLevels > 0 ? world.totalLevels : 1);
+    double progress =
+        world.currentLevel / (world.totalLevels > 0 ? world.totalLevels : 1);
     return Container(
       height: 10,
       width: double.infinity,
@@ -274,7 +327,9 @@ class _WorldScreenState extends State<WorldScreen> {
         widthFactor: progress,
         child: Container(
           decoration: BoxDecoration(
-            color: world.status == WorldStatus.locked ? Colors.grey.shade300 : world.themeColor,
+            color: world.status == WorldStatus.locked
+                ? Colors.grey.shade300
+                : world.themeColor,
             borderRadius: BorderRadius.circular(10),
           ),
         ),
@@ -282,19 +337,19 @@ class _WorldScreenState extends State<WorldScreen> {
     );
   }
 
-  Widget _buildActionButton(WorldModel world) {
+  Widget _buildActionButton(WorldModel world, int index) {
     String text = 'PLAY';
     Color color = const Color(0xffF15A24);
 
     if (world.status == WorldStatus.active) {
-      text = 'CONTINUE';
+      text = 'PLAY';
     } else if (world.status == WorldStatus.locked) {
       text = 'LOCKED';
       color = const Color(0xff9EAFC3);
     }
 
     return Container(
-      constraints: const BoxConstraints(minWidth: 100), // Constraint width here
+      constraints: const BoxConstraints(minWidth: 100),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: world.status != WorldStatus.locked
@@ -308,21 +363,25 @@ class _WorldScreenState extends State<WorldScreen> {
             : [],
       ),
       child: ElevatedButton(
-        onPressed: world.status == WorldStatus.locked ? null : () {},
+        onPressed: world.status == WorldStatus.locked
+            ? null
+            : () {
+                Get.toNamed('/levels', arguments: {'world': world, 'index': index});
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
           disabledBackgroundColor: color.withOpacity(0.6),
           disabledForegroundColor: Colors.white.withOpacity(0.8),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          minimumSize: const Size(100, 45), // Explicit finite size
-          maximumSize: const Size(140, 45), // Prevent overflow
+          minimumSize: const Size(100, 45),
+          maximumSize: const Size(140, 45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 0,
         ),
-        child: FittedBox( // Ensure text fits
+        child: FittedBox(
           child: Text(
             text,
             style: GoogleFonts.poppins(
@@ -336,7 +395,7 @@ class _WorldScreenState extends State<WorldScreen> {
     );
   }
 
-  Widget _buildLockedOverlay(WorldModel world) {
+  Widget _buildLockedOverlay(WorldModel world, int index) {
     return Positioned.fill(
       child: Container(
         color: Colors.black.withOpacity(0.2),
@@ -347,7 +406,7 @@ class _WorldScreenState extends State<WorldScreen> {
               const Icon(Icons.lock_rounded, color: Colors.white, size: 40),
               const SizedBox(height: 8),
               Text(
-                'Unlock at Level ${world.unlockLevel}',
+                'Complete World $index to Unlock',
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -377,7 +436,11 @@ class _WorldScreenState extends State<WorldScreen> {
       ),
       child: Column(
         children: [
-          const Icon(Icons.rocket_launch_rounded, color: Color(0xff9EAFC3), size: 45),
+          const Icon(
+            Icons.rocket_launch_rounded,
+            color: Color(0xff9EAFC3),
+            size: 45,
+          ),
           const SizedBox(height: 15),
           Text(
             'Coming Soon!',
@@ -400,56 +463,4 @@ class _WorldScreenState extends State<WorldScreen> {
       ),
     );
   }
-
-  // Widget _buildBottomNav() {
-  //   return Container(
-  //     height: 85,
-  //     width: double.infinity,
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: const BorderRadius.only(
-  //         topLeft: Radius.circular(30),
-  //         topRight: Radius.circular(30),
-  //       ),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.05),
-  //           blurRadius: 20,
-  //           offset: const Offset(0, -5),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //       children: [
-  //         _buildNavItem(icon: Icons.home_rounded, label: 'HOME'),
-  //         _buildNavItem(icon: Icons.public_rounded, label: 'WORLDS', isActive: true),
-  //         _buildNavItem(icon: Icons.shopping_cart_rounded, label: 'SHOP'),
-  //         _buildNavItem(icon: Icons.person_rounded, label: 'PROFILE'),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // Widget _buildNavItem({required IconData icon, required String label, bool isActive = false}) {
-  //   return Column(
-  //     mainAxisSize: MainAxisSize.min,
-  //     children: [
-  //       Icon(
-  //         icon,
-  //         color: isActive ? const Color(0xffF15A24) : const Color(0xff9EAFC3),
-  //         size: 26,
-  //       ),
-  //       const SizedBox(height: 4),
-  //       Text(
-  //         label,
-  //         style: GoogleFonts.poppins(
-  //           fontSize: 10,
-  //           fontWeight: FontWeight.w800,
-  //           color: isActive ? const Color(0xffF15A24) : const Color(0xff9EAFC3),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 }

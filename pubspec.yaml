@@ -41,6 +41,7 @@ dependencies:
   get: ^4.7.3
   firebase_database: ^12.1.4
   firebase_core: ^4.5.0
+  spritewidget: ^2.0.1
 
 dev_dependencies:
   flutter_test:
