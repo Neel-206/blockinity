@@ -1,3 +1,4 @@
+import 'package:blockinity/Controller/player_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -14,7 +15,7 @@ class _HomeViewState extends State<HomeView>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-
+  
   @override
   void initState() {
     super.initState();
@@ -291,14 +292,16 @@ class _HomeViewState extends State<HomeView>
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '0',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.navyTitle,
-                  ),
-                ),
+                Obx(() {
+                  return Text(
+                    '${Get.find<PlayerController>().coins.value}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.navyTitle,
+                    ),
+                  );
+                }),
               ],
             ),
           ),

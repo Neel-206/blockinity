@@ -1,5 +1,8 @@
 import 'dart:math';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:ui' as ui;
 import 'package:blockinity/Controller/level_controller.dart';
+import 'package:blockinity/Controller/player_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:blockinity/ui/view/animation_nodes.dart';
 import 'package:blockinity/ui/view/block_sprite_node.dart';
@@ -31,13 +34,18 @@ class _GameScreenState extends State<GameScreen> {
   late BoardNode boardNode;
   final Random _random = Random();
   int _score = 0;
+  int _combo = 0;
   int _currentLevel = 1;
 
-  int get _targetScore => _currentLevel * 500; // Example target: 500, 1000, 1500...
+  int get _targetScore => 200 + ((_currentLevel - 1) * 150); 
 
   final int rows = 10;
   final int cols = 8;
   late List<List<Color?>> boardState;
+  late List<List<bool>> cartoonsGrid;
+  ui.Image? _cartoonImage;
+  int _collectedCartoons = 0;
+  int get _targetCartoons => 3 + ((_currentLevel - 1) * 2);
 
   List<NextBlockItem> nextBlocks = [];
   int _idCounter = 0;
@@ -52,20 +60,56 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _currentLevel = Get.arguments ?? 1;
     boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
+    cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
     rootNode = NodeWithSize(const Size(400, 500));
 
-    bgNode = NodeWithSize(const Size(400, 800));
+    bgNode = NodeWithSize(const Size(800, 800));
     final bgLayer = BackgroundLayerNode(const Size(400, 800));
     bgNode.addChild(bgLayer);
 
     _setupGameArena();
+    _setupTargets();
+    _loadCartoonImage();
     _fillNextBlocks();
   }
 
   void _setupGameArena() {
     boardNode = BoardNode(rows: rows, cols: cols, cellSize: 45.0, padding: 1.5);
     boardNode.position = const Offset(20, 20);
+    boardNode.updateGrid(boardState, cartoonsGrid);
     rootNode.addChild(boardNode);
+  }
+
+  Future<void> _loadCartoonImage() async {
+    try {
+      final data = await rootBundle.load('images/splash.png');
+      final bytes = data.buffer.asUint8List();
+      ui.decodeImageFromList(bytes, (image) {
+        if (mounted) {
+          setState(() {
+            _cartoonImage = image;
+            boardNode.cartoonImage = _cartoonImage;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint("Error loading image: $e");
+    }
+  }
+
+  void _setupTargets() {
+    int targetsToPlace = _targetCartoons;
+    List<Offset> emptyCells = [];
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+      }
+    }
+    emptyCells.shuffle(_random);
+
+    for (int i = 0; i < targetsToPlace && i < emptyCells.length; i++) {
+        cartoonsGrid[emptyCells[i].dx.toInt()][emptyCells[i].dy.toInt()] = true;
+    }
   }
 
   void _fillNextBlocks() {
@@ -99,10 +143,9 @@ class _GameScreenState extends State<GameScreen> {
             id: _idCounter++,
           ),
         );
-      } else {
-        _checkGameOver();
       }
     }
+    _checkGameOver();
   }
 
   void _checkGameOver() {
@@ -121,6 +164,7 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     if (!canPlaceAny && nextBlocks.isNotEmpty) {
+      Get.find<PlayerController>().addScore(_score);
       Get.dialog(
         AlertDialog(
           title: const Text('Game Over'),
@@ -142,16 +186,19 @@ class _GameScreenState extends State<GameScreen> {
   void _resetGame() {
     setState(() {
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
-      boardNode.updateGrid(boardState);
+      cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
+      _setupTargets();
+      boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
-      _currentLevel = 1;
+      _combo = 0;
+      _collectedCartoons = 0;
       nextBlocks.clear();
       _fillNextBlocks();
     });
   }
 
   void _checkLevelProgression() {
-    if (_score >= _targetScore) {
+    if (_score >= _targetScore && _collectedCartoons >= _targetCartoons) {
       _showLevelUpDialog();
     }
   }
@@ -223,10 +270,22 @@ class _GameScreenState extends State<GameScreen> {
   void _nextLevel() {
     // Persistent progress update
     Get.find<LevelController>().completeLevel(_currentLevel);
+    
+    // Reward player gems and coins for completing a level
+    Get.find<PlayerController>().completeLevel(_currentLevel);
+    Get.find<PlayerController>().addCoins(50);
 
     setState(() {
       _currentLevel++;
-      // Optional: Clear board or keep it?
+      boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
+      cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
+      _setupTargets();
+      boardNode.updateGrid(boardState, cartoonsGrid);
+      _score = 0;
+      _combo = 0;
+      _collectedCartoons = 0;
+      nextBlocks.clear();
+      _fillNextBlocks();
     });
   }
 
@@ -238,7 +297,7 @@ class _GameScreenState extends State<GameScreen> {
           int targetC = col + c;
           if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols)
             return false;
-          if (boardState[targetR][targetC] != null) return false;
+          if (boardState[targetR][targetC] != null || cartoonsGrid[targetR][targetC]) return false;
         }
       }
     }
@@ -247,18 +306,22 @@ class _GameScreenState extends State<GameScreen> {
 
   void _placeShape(NextBlockItem item, int row, int col) {
     setState(() {
+      int cellsPlaced = 0;
       for (int r = 0; r < item.shape.length; r++) {
         for (int c = 0; c < item.shape[r].length; c++) {
           if (item.shape[r][c] == 1) {
             boardState[row + r][col + c] = item.color;
+            cellsPlaced++;
           }
         }
       }
       boardNode.playPlacementEffect(row, col, item.color);
-      _score += 10;
+      _score += cellsPlaced;
+      Get.find<PlayerController>().addBlocksCleared(cellsPlaced);
+      
       nextBlocks.removeWhere((b) => b.id == item.id);
       _fillNextBlocks();
-      boardNode.updateGrid(boardState);
+      boardNode.updateGrid(boardState, cartoonsGrid);
       _checkLines();
       _checkLevelProgression();
     });
@@ -269,7 +332,7 @@ class _GameScreenState extends State<GameScreen> {
     for (int r = 0; r < rows; r++) {
       bool full = true;
       for (int c = 0; c < cols; c++) {
-        if (boardState[r][c] == null) {
+        if (boardState[r][c] == null && !cartoonsGrid[r][c]) {
           full = false;
           break;
         }
@@ -281,7 +344,7 @@ class _GameScreenState extends State<GameScreen> {
     for (int c = 0; c < cols; c++) {
       bool full = true;
       for (int r = 0; r < rows; r++) {
-        if (boardState[r][c] == null) {
+        if (boardState[r][c] == null && !cartoonsGrid[r][c]) {
           full = false;
           break;
         }
@@ -289,20 +352,64 @@ class _GameScreenState extends State<GameScreen> {
       if (full) fullCols.add(c);
     }
 
-    if (fullRows.isNotEmpty || fullCols.isNotEmpty) {
+    int linesCleared = fullRows.length + fullCols.length;
+
+    if (linesCleared > 0) {
       setState(() {
+        Set<String> collectedThisTurn = {};
         for (var r in fullRows) {
-          for (int c = 0; c < cols; c++) boardState[r][c] = null;
+          for (int c = 0; c < cols; c++) {
+            boardState[r][c] = null;
+            if (cartoonsGrid[r][c]) collectedThisTurn.add('$r,$c');
+          }
           boardNode.playLineClearEffect(r, true);
         }
         for (var c in fullCols) {
-          for (int r = 0; r < rows; r++) boardState[r][c] = null;
+          for (int r = 0; r < rows; r++) {
+            boardState[r][c] = null;
+            if (cartoonsGrid[r][c]) collectedThisTurn.add('$r,$c');
+          }
           boardNode.playLineClearEffect(c, false);
         }
-        _score += (fullRows.length + fullCols.length) * 100;
-        boardNode.updateGrid(boardState);
-        _checkLevelProgression();
+
+        for (var key in collectedThisTurn) {
+          var parts = key.split(',');
+          int r = int.parse(parts[0]);
+          int c = int.parse(parts[1]);
+          cartoonsGrid[r][c] = false;
+          _collectedCartoons++;
+          if (_cartoonImage != null) {
+            boardNode.playCartoonCollectEffect(r, c, _cartoonImage!);
+          }
+        }
+        
+        // Base Score logic
+        if (linesCleared == 1) _score += 10;
+        else if (linesCleared == 2) _score += 30;
+        else if (linesCleared == 3) _score += 60;
+        else if (linesCleared >= 4) _score += 100;
+        
+        // Combo update
+        _combo++;
+        if (_combo > 1) {
+          _score += _combo * 10; // Combo score
+        } else {
+          _score += 10; // First combo gives 10 per the logic Example logic
+        }
+
+        // Coins rewards
+        int earnedCoins = linesCleared * 5;
+        if (_combo > 1) {
+          earnedCoins += 10; // Combo clear coins
+        }
+        
+        Get.find<PlayerController>().addCoins(earnedCoins);
+        Get.find<PlayerController>().addScore(_score);
+
+        boardNode.updateGrid(boardState, cartoonsGrid);
       });
+    } else {
+      _combo = 0; // Reset combo if no line cleared
     }
   }
 
@@ -444,7 +551,7 @@ class _GameScreenState extends State<GameScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'GOAL: $_targetScore',
+                'GOAL: $_targetScore | CARTOONS: $_collectedCartoons/$_targetCartoons',
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,

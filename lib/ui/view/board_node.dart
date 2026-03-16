@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:blockinity/ui/view/animation_nodes.dart';
 import 'package:flutter/material.dart';
 import 'package:spritewidget/spritewidget.dart';
@@ -10,6 +11,8 @@ class BoardNode extends Node {
 
   // Grid state: stores the color of each cell, null if empty
   late List<List<Color?>> _grid;
+  late List<List<bool>> _cartoonsGrid;
+  ui.Image? cartoonImage;
 
   // Preview state
   List<List<int>>? _previewShape;
@@ -23,10 +26,12 @@ class BoardNode extends Node {
     this.padding = 1.0,
   }) {
     _grid = List.generate(rows, (r) => List.generate(cols, (c) => null));
+    _cartoonsGrid = List.generate(rows, (r) => List.generate(cols, (c) => false));
   }
 
-  void updateGrid(List<List<Color?>> newGrid) {
+  void updateGrid(List<List<Color?>> newGrid, List<List<bool>> newCartoons) {
     _grid = newGrid;
+    _cartoonsGrid = newCartoons;
   }
 
   void playPlacementEffect(int row, int col, Color color) {
@@ -65,6 +70,53 @@ class BoardNode extends Node {
       );
       addChild(effect);
     }
+  }
+
+  void playCartoonCollectEffect(int row, int col, ui.Image image) {
+    final texture = SpriteTexture(image);
+    final sprite = Sprite(texture: texture);
+    
+    final double targetWidth = cellSize - (padding * 2) + 15;
+    // Approximate scale to match the painted rect
+    sprite.scale = targetWidth / image.width;
+    
+    // Position correctly in center of cell, moved slightly up for the taller target
+    sprite.position = Offset(
+      col * cellSize + cellSize / 2,
+      row * cellSize + cellSize / 2 - 7.5,
+    );
+    
+    addChild(sprite);
+
+    // Use SpriteWidget motions for collection animation
+    motions.run(
+      MotionSequence(motions: [
+        MotionGroup(motions: [
+          MotionTween<double>(
+            setter: (v) => sprite.position = Offset(sprite.position.dx, v),
+            start: sprite.position.dy,
+            end: sprite.position.dy - 60,
+            duration: 0.6,
+            curve: Curves.easeOut,
+          ),
+          MotionTween<double>(
+            setter: (v) => sprite.scale = v,
+            start: sprite.scale,
+            end: sprite.scale * 1.5,
+            duration: 0.6,
+            curve: Curves.easeOut,
+          ),
+          MotionTween<double>(
+            setter: (v) => sprite.opacity = v,
+            start: 1.0,
+            end: 0.0,
+            duration: 0.6,
+            curve: Curves.easeIn,
+          ),
+        ]),
+        MotionCallFunction(callback: () => sprite.removeFromParent()),
+      ]),
+    );
   }
 
   void updatePreview(List<List<int>>? shape, Offset? pos, Color? color) {
@@ -141,6 +193,22 @@ class BoardNode extends Node {
           canvas.drawRRect(
             RRect.fromRectAndRadius(rect, const Radius.circular(4)),
             emptyCellPaint,
+          );
+        }
+
+        // Draw the cartoon target if one is present on this cell
+        if (_cartoonsGrid[r][c] && cartoonImage != null) {
+          final targetRect = Rect.fromLTWH(
+            rect.left - 7.5, // Increase width to left
+            rect.top - 15, // Increase height by starting higher
+            rect.width + 15, // Increase total width
+            rect.height + 15, // Increase total height
+          );
+          canvas.drawImageRect(
+            cartoonImage!,
+            Rect.fromLTWH(0, 0, cartoonImage!.width.toDouble(), cartoonImage!.height.toDouble()),
+            targetRect,
+            Paint(),
           );
         }
       }
