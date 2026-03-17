@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'dart:ui' as ui;
 import 'package:blockinity/Controller/level_controller.dart';
 import 'package:blockinity/Controller/player_controller.dart';
+import 'package:blockinity/Services/daily_challenge_service.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:blockinity/ui/view/animation_nodes.dart';
 import 'package:blockinity/ui/view/block_sprite_node.dart';
@@ -32,12 +33,24 @@ class _GameScreenState extends State<GameScreen> {
   late NodeWithSize rootNode;
   late NodeWithSize bgNode;
   late BoardNode boardNode;
-  final Random _random = Random();
+ // final Random _random = Random();
+ 
+  late Random _blockRandom;
   int _score = 0;
   int _combo = 0;
   int _currentLevel = 1;
 
-  int get _targetScore => 200 + ((_currentLevel - 1) * 150); 
+  // Challenge mode fields
+  bool _isChallenge = false;
+  int _challengeSeed = 0;
+  int _challengeTargetScore = 0;
+  int _challengeTargetCartoons = 0;
+  int _challengeObstacles = 0;
+  int _challengeCoinReward = 0;
+  int _challengeGemReward = 0;
+
+  int get _targetScore => _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 150);
+  int get _obstacleCount => _isChallenge ? _challengeObstacles : (_currentLevel - 1).clamp(0, 6);
 
   final int rows = 10;
   final int cols = 8;
@@ -45,7 +58,7 @@ class _GameScreenState extends State<GameScreen> {
   late List<List<bool>> cartoonsGrid;
   ui.Image? _cartoonImage;
   int _collectedCartoons = 0;
-  int get _targetCartoons => 3 + ((_currentLevel - 1) * 2);
+  int get _targetCartoons => _isChallenge ? _challengeTargetCartoons : 3 + ((_currentLevel - 1) * 2);
 
   List<NextBlockItem> nextBlocks = [];
   int _idCounter = 0;
@@ -58,7 +71,20 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _currentLevel = Get.arguments ?? 1;
+    final args = Get.arguments;
+    if (args is Map) {
+      _isChallenge = true;
+      _challengeSeed = args['challengeSeed'] as int;
+      _challengeTargetScore = args['targetScore'] as int;
+      _challengeTargetCartoons = args['targetCartoons'] as int;
+      _challengeObstacles = args['obstacles'] as int;
+      _challengeCoinReward = args['coinReward'] as int;
+      _challengeGemReward = args['gemReward'] as int;
+      _blockRandom = Random(_challengeSeed);
+    } else {
+      _currentLevel = (args as int?) ?? 1;
+      _blockRandom = Random(_currentLevel * 1013 + 7); // seeded per level
+    }
     boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
     cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
     rootNode = NodeWithSize(const Size(400, 500));
@@ -68,6 +94,7 @@ class _GameScreenState extends State<GameScreen> {
     bgNode.addChild(bgLayer);
 
     _setupGameArena();
+    _placeObstacles();
     _setupTargets();
     _loadCartoonImage();
     _fillNextBlocks();
@@ -97,18 +124,52 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _setupTargets() {
-    int targetsToPlace = _targetCartoons;
+  /// Pre-fills a few cells as obstacle blocks based on current level difficulty.
+  void _placeObstacles() {
+    int count = _obstacleCount;
+    if (count == 0) return;
+
+    // Seed with level number so obstacle positions are always the same for a given level
+    final levelRandom = Random(_currentLevel * 997);
+
     List<Offset> emptyCells = [];
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
-        emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+        if (boardState[r][c] == null) {
+          emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+        }
       }
     }
-    emptyCells.shuffle(_random);
+    emptyCells.shuffle(levelRandom);
+
+    const Color obstacleColor = Color(0xff64748B); // slate grey obstacle
+    for (int i = 0; i < count && i < emptyCells.length; i++) {
+      int r = emptyCells[i].dx.toInt();
+      int c = emptyCells[i].dy.toInt();
+      boardState[r][c] = obstacleColor;
+    }
+  }
+
+  void _setupTargets() {
+    int targetsToPlace = _targetCartoons;
+
+    // Seed with level number (different from obstacles seed) so cartoon positions
+    // are always identical for the same level, regardless of how many times it's opened
+    final levelRandom = Random(_currentLevel * 1009 + 3);
+
+    List<Offset> emptyCells = [];
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        // Only place cartoons on cells not already occupied by obstacles
+        if (boardState[r][c] == null) {
+          emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+        }
+      }
+    }
+    emptyCells.shuffle(levelRandom);
 
     for (int i = 0; i < targetsToPlace && i < emptyCells.length; i++) {
-        cartoonsGrid[emptyCells[i].dx.toInt()][emptyCells[i].dy.toInt()] = true;
+      cartoonsGrid[emptyCells[i].dx.toInt()][emptyCells[i].dy.toInt()] = true;
     }
   }
 
@@ -122,8 +183,22 @@ class _GameScreenState extends State<GameScreen> {
       const Color(0xff2196F3),
     ];
 
+    // Only generate new blocks when all previous ones are placed
+    if (nextBlocks.isNotEmpty) {
+      _checkGameOver();
+      return;
+    }
+
+    int safetyCounter = 0;
     while (nextBlocks.length < 3) {
-      List<List<int>> shape = GameShapes.getRandomShapeWeighted();
+      safetyCounter++;
+      if (safetyCounter > 100) {
+        // Prevent infinite loop if the board is completely jammed 
+        // and NO shapes can be placed.
+        break;
+      }
+
+      List<List<int>> shape = GameShapes.getRandomShapeWeighted(random: _blockRandom);
       bool possible = false;
       for (int r = 0; r < rows; r++) {
         for (int c = 0; c < cols; c++) {
@@ -139,10 +214,11 @@ class _GameScreenState extends State<GameScreen> {
         nextBlocks.add(
           NextBlockItem(
             shape: shape,
-            color: shapeColors[_random.nextInt(shapeColors.length)],
+            color: shapeColors[_blockRandom.nextInt(shapeColors.length)],
             id: _idCounter++,
           ),
         );
+        safetyCounter = 0; // reset safety on successful add
       }
     }
     _checkGameOver();
@@ -187,20 +263,97 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
       cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
+      _placeObstacles();
       _setupTargets();
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
+      _blockRandom = _isChallenge ? Random(_challengeSeed) : Random(_currentLevel * 1013 + 7); // reset block sequence
       _fillNextBlocks();
     });
   }
 
   void _checkLevelProgression() {
     if (_score >= _targetScore && _collectedCartoons >= _targetCartoons) {
-      _showLevelUpDialog();
+      if (_isChallenge) {
+        _showChallengeCompleteDialog();
+      } else {
+        _showLevelUpDialog();
+      }
     }
+  }
+
+  void _showChallengeCompleteDialog() {
+    Get.dialog(
+      barrierDismissible: false,
+      AlertDialog(
+        backgroundColor: const Color(0xffF8F9FB),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Center(
+          child: Text(
+            'CHALLENGE MET!',
+            style: GoogleFonts.sourGummy(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: AppColors.success,
+            ),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You beat today\'s puzzle!',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff475569),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('+$_challengeCoinReward 🪙', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 16),
+                Text('+$_challengeGemReward 💎', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                Get.back(); // close dialog
+                
+                final pc = Get.find<PlayerController>();
+                pc.addCoins(_challengeCoinReward);
+                pc.addGems(_challengeGemReward);
+                await DailyChallengeService().markTodayCompleted();
+
+                Get.back(); // return to home screen
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text('CLAIM & EXIT'),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
   }
 
   void _showLevelUpDialog() {
@@ -279,12 +432,14 @@ class _GameScreenState extends State<GameScreen> {
       _currentLevel++;
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
       cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
+      _placeObstacles();
       _setupTargets();
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
+      _blockRandom = Random(_currentLevel * 1013 + 7); // reset block sequence for new level
       _fillNextBlocks();
     });
   }

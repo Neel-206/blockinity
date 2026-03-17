@@ -90,24 +90,24 @@ class GameShapes {
     ...largeShapes,
   ];
 
-  static List<List<int>> getRandomShapeWeighted() {
-    final random = Random();
-    int r = random.nextInt(100);
+  static List<List<int>> getRandomShapeWeighted({Random? random}) {
+    final rng = random ?? Random();
+    int r = rng.nextInt(100);
 
     if (r < 50) {
       // 50% Small
-      return smallShapes[random.nextInt(smallShapes.length)];
+      return smallShapes[rng.nextInt(smallShapes.length)];
     } else if (r < 85) {
       // 35% Medium
-      return mediumShapes[random.nextInt(mediumShapes.length)];
+      return mediumShapes[rng.nextInt(mediumShapes.length)];
     } else {
       // 15% Large
-      return largeShapes[random.nextInt(largeShapes.length)];
+      return largeShapes[rng.nextInt(largeShapes.length)];
     }
   }
 
-  static List<List<int>> getRandomShape() {
-    final random = Random();
-    return allShapes[random.nextInt(allShapes.length)];
+  static List<List<int>> getRandomShape({Random? random}) {
+    final rng = random ?? Random();
+    return allShapes[rng.nextInt(allShapes.length)];
   }
 }

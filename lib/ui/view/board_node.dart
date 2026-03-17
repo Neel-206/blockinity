@@ -196,13 +196,15 @@ class BoardNode extends Node {
           );
         }
 
-        // Draw the cartoon target if one is present on this cell
+        // Draw the cartoon target centered inside the cell
         if (_cartoonsGrid[r][c] && cartoonImage != null) {
-          final targetRect = Rect.fromLTWH(
-            rect.left - 7.5, // Increase width to left
-            rect.top - 15, // Increase height by starting higher
-            rect.width + 15, // Increase total width
-            rect.height + 15, // Increase total height
+          final double imgSize = cellSize * 1.5;
+          final double centerX = c * cellSize + cellSize / 2;
+          final double centerY = r * cellSize + cellSize / 2;
+          final targetRect = Rect.fromCenter(
+            center: Offset(centerX, centerY),
+            width: imgSize,
+            height: imgSize,
           );
           canvas.drawImageRect(
             cartoonImage!,

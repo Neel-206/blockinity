@@ -1,3 +1,4 @@
+import 'package:blockinity/Controller/level_controller.dart';
 import 'package:blockinity/Controller/player_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -137,8 +138,10 @@ class _HomeViewState extends State<HomeView>
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  // Handle play button tap
-                  Get.toNamed('/game');
+                  final levelCtrl = Get.find<LevelController>();
+                  // Resume from the next level after the highest completed one
+                  final int nextLevel = levelCtrl.unlockedLevel.value + 1;
+                  Get.toNamed('/game', arguments: nextLevel);
                 },
                 customBorder: const CircleBorder(),
                 child: Column(

@@ -452,7 +452,7 @@ class _WorldScreenState extends State<WorldScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'New dimensions are being discovered\nby the Cuboria scientists.',
+            'New dimensions are being discovered\nby the Blockinity scientists.',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 13,
