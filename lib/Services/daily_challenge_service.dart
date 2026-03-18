@@ -56,7 +56,7 @@ class DailyChallengeService {
     final weekday  = now.weekday; // 1-7
     final baseScore = 250 + weekday * 50;     // 300-600
     final cartoons  = 2 + (weekday ~/ 2);     // 2-5
-    final obstacles = (weekday - 1).clamp(0, 5); // 0-5
+    final obstacles = 0; // Obstacles removed as per user request
 
     return DailyChallengeConfig(
       seed:          dateSeed,

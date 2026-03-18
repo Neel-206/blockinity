@@ -33,8 +33,8 @@ class _GameScreenState extends State<GameScreen> {
   late NodeWithSize rootNode;
   late NodeWithSize bgNode;
   late BoardNode boardNode;
- // final Random _random = Random();
- 
+  // final Random _random = Random();
+
   late Random _blockRandom;
   int _score = 0;
   int _combo = 0;
@@ -45,12 +45,13 @@ class _GameScreenState extends State<GameScreen> {
   int _challengeSeed = 0;
   int _challengeTargetScore = 0;
   int _challengeTargetCartoons = 0;
-  int _challengeObstacles = 0;
+  // int _challengeObstacles = 0; // Removed unused field
   int _challengeCoinReward = 0;
   int _challengeGemReward = 0;
 
-  int get _targetScore => _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 150);
-  int get _obstacleCount => _isChallenge ? _challengeObstacles : (_currentLevel - 1).clamp(0, 6);
+  int get _targetScore =>
+      _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 150);
+  // int get _obstacleCount => 0; // Removed unused getter
 
   final int rows = 10;
   final int cols = 8;
@@ -58,7 +59,9 @@ class _GameScreenState extends State<GameScreen> {
   late List<List<bool>> cartoonsGrid;
   ui.Image? _cartoonImage;
   int _collectedCartoons = 0;
-  int get _targetCartoons => _isChallenge ? _challengeTargetCartoons : 3 + ((_currentLevel - 1) * 2);
+  int get _targetCartoons => _isChallenge
+      ? _challengeTargetCartoons
+      : min(3 + (_currentLevel ~/ 2), 10);
 
   List<NextBlockItem> nextBlocks = [];
   int _idCounter = 0;
@@ -77,7 +80,7 @@ class _GameScreenState extends State<GameScreen> {
       _challengeSeed = args['challengeSeed'] as int;
       _challengeTargetScore = args['targetScore'] as int;
       _challengeTargetCartoons = args['targetCartoons'] as int;
-      _challengeObstacles = args['obstacles'] as int;
+      // _challengeObstacles = args['obstacles'] as int; // Removed unused extraction
       _challengeCoinReward = args['coinReward'] as int;
       _challengeGemReward = args['gemReward'] as int;
       _blockRandom = Random(_challengeSeed);
@@ -86,7 +89,10 @@ class _GameScreenState extends State<GameScreen> {
       _blockRandom = Random(_currentLevel * 1013 + 7); // seeded per level
     }
     boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
-    cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
+    cartoonsGrid = List.generate(
+      rows,
+      (_) => List.generate(cols, (_) => false),
+    );
     rootNode = NodeWithSize(const Size(400, 500));
 
     bgNode = NodeWithSize(const Size(800, 800));
@@ -94,7 +100,7 @@ class _GameScreenState extends State<GameScreen> {
     bgNode.addChild(bgLayer);
 
     _setupGameArena();
-    _placeObstacles();
+    // _placeObstacles(); // Removed gray blocks as per user request
     _setupTargets();
     _loadCartoonImage();
     _fillNextBlocks();
@@ -124,53 +130,76 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  /// Pre-fills a few cells as obstacle blocks based on current level difficulty.
-  void _placeObstacles() {
-    int count = _obstacleCount;
-    if (count == 0) return;
+  // Removed _placeObstacles function as per user request
 
-    // Seed with level number so obstacle positions are always the same for a given level
-    final levelRandom = Random(_currentLevel * 997);
-
-    List<Offset> emptyCells = [];
+  void _setupTargets() {
+    List<Offset> positions = [];
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         if (boardState[r][c] == null) {
-          emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+          positions.add(Offset(r.toDouble(), c.toDouble()));
         }
       }
     }
-    emptyCells.shuffle(levelRandom);
 
-    const Color obstacleColor = Color(0xff64748B); // slate grey obstacle
-    for (int i = 0; i < count && i < emptyCells.length; i++) {
-      int r = emptyCells[i].dx.toInt();
-      int c = emptyCells[i].dy.toInt();
-      boardState[r][c] = obstacleColor;
+    // Shuffle with seed
+    positions.shuffle(Random(_currentLevel * 1009 + 3));
+
+    // Improvement 3: Priority-based placement for early levels
+    if (_currentLevel < 10) {
+      // Prioritize center cells for "Easy" placement
+      positions.sort((a, b) {
+        bool aInCenter = _isCenter(a.dx.toInt(), a.dy.toInt());
+        bool bInCenter = _isCenter(b.dx.toInt(), b.dy.toInt());
+        if (aInCenter && !bInCenter) return -1;
+        if (!aInCenter && bInCenter) return 1;
+        return 0;
+      });
+    }
+
+    // Place cartoons with Improvement 2 (no clustering) logic
+    int placedCount = 0;
+    // 1st Pass: Try to place far apart (using isNearExisting improvement)
+    for (var pos in positions) {
+      if (placedCount >= _targetCartoons) break;
+      int r = pos.dx.toInt();
+      int c = pos.dy.toInt();
+      if (!_isNearExisting(r, c)) {
+        cartoonsGrid[r][c] = true;
+        placedCount++;
+      }
+    }
+
+    // 2nd Pass: Fill remaining if needed (fallback to allow clustering)
+    if (placedCount < _targetCartoons) {
+      for (var pos in positions) {
+        if (placedCount >= _targetCartoons) break;
+        int r = pos.dx.toInt();
+        int c = pos.dy.toInt();
+        if (!cartoonsGrid[r][c]) {
+          cartoonsGrid[r][c] = true;
+          placedCount++;
+        }
+      }
     }
   }
 
-  void _setupTargets() {
-    int targetsToPlace = _targetCartoons;
-
-    // Seed with level number (different from obstacles seed) so cartoon positions
-    // are always identical for the same level, regardless of how many times it's opened
-    final levelRandom = Random(_currentLevel * 1009 + 3);
-
-    List<Offset> emptyCells = [];
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        // Only place cartoons on cells not already occupied by obstacles
-        if (boardState[r][c] == null) {
-          emptyCells.add(Offset(r.toDouble(), c.toDouble()));
+  bool _isNearExisting(int r, int c) {
+    for (int i = -1; i <= 1; i++) {
+      for (int j = -1; j <= 1; j++) {
+        int nr = r + i;
+        int nc = c + j;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+          if (cartoonsGrid[nr][nc]) return true;
         }
       }
     }
-    emptyCells.shuffle(levelRandom);
+    return false;
+  }
 
-    for (int i = 0; i < targetsToPlace && i < emptyCells.length; i++) {
-      cartoonsGrid[emptyCells[i].dx.toInt()][emptyCells[i].dy.toInt()] = true;
-    }
+  bool _isCenter(int r, int c) {
+    // Defines center rows and columns for easy levels (Improvement 3)
+    return r >= 3 && r <= 6 && c >= 2 && c <= 5;
   }
 
   void _fillNextBlocks() {
@@ -189,39 +218,187 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    int safetyCounter = 0;
-    while (nextBlocks.length < 3) {
-      safetyCounter++;
-      if (safetyCounter > 100) {
-        // Prevent infinite loop if the board is completely jammed 
-        // and NO shapes can be placed.
-        break;
-      }
+    // 1. Analyze the grid: Find all possible shapes and their placement scores
+    List<MapEntry<List<List<int>>, double>> candidates = [];
+    for (var shape in GameShapes.allShapes) {
+      double bestScoreForShape = -1.0;
+      bool isPossible = false;
 
-      List<List<int>> shape = GameShapes.getRandomShapeWeighted(random: _blockRandom);
-      bool possible = false;
+      // Evaluate every possible position for this shape
       for (int r = 0; r < rows; r++) {
         for (int c = 0; c < cols; c++) {
           if (_canPlace(shape, r, c)) {
-            possible = true;
-            break;
+            isPossible = true;
+            double currentScore = _calculatePlacementScore(shape, r, c);
+            if (currentScore > bestScoreForShape) {
+              bestScoreForShape = currentScore;
+            }
           }
         }
-        if (possible) break;
       }
 
-      if (possible) {
-        nextBlocks.add(
-          NextBlockItem(
-            shape: shape,
-            color: shapeColors[_blockRandom.nextInt(shapeColors.length)],
-            id: _idCounter++,
-          ),
-        );
-        safetyCounter = 0; // reset safety on successful add
+      if (isPossible) {
+        candidates.add(MapEntry(shape, bestScoreForShape));
       }
     }
+
+    // If no blocks can be placed, the game will trigger Game Over in _checkGameOver
+    if (candidates.isEmpty) {
+      _checkGameOver();
+      return;
+    }
+
+    // Sort candidates by score (highest score = most "needed" or "helpful" block)
+    candidates.sort((a, b) => b.value.compareTo(a.value));
+
+    // 2. Pick 3 blocks with guaranteed diversity
+    // Slot 0: Strategic Help (Top performer)
+    if (candidates.isNotEmpty) {
+      int range = min(3, candidates.length);
+      var best = candidates[_blockRandom.nextInt(range)].key;
+      nextBlocks.add(_createBlockItem(best, shapeColors));
+    }
+
+    // Slot 1: Forced Small/Medium for versatility
+    var versatileCandidates = candidates.where((e) {
+      int size = 0;
+      for (var r in e.key) {
+        for (var v in r) if (v == 1) size++;
+      }
+      return size <= 3;
+    }).toList();
+
+    if (versatileCandidates.isNotEmpty) {
+      nextBlocks.add(
+        _createBlockItem(
+          versatileCandidates[_blockRandom.nextInt(versatileCandidates.length)]
+              .key,
+          shapeColors,
+        ),
+      );
+    } else if (candidates.length > 2) {
+      // Fallback: Pick a different one from Slot 0
+      nextBlocks.add(_createBlockItem(candidates[1].key, shapeColors));
+    }
+
+    // Slot 2: Pure Random distribution from all possible shapes
+    if (candidates.isNotEmpty) {
+      nextBlocks.add(
+        _createBlockItem(
+          candidates[_blockRandom.nextInt(candidates.length)].key,
+          shapeColors,
+        ),
+      );
+    }
+
     _checkGameOver();
+  }
+
+  NextBlockItem _createBlockItem(List<List<int>> shape, List<Color> colors) {
+    return NextBlockItem(
+      shape: shape,
+      color: colors[_blockRandom.nextInt(colors.length)],
+      id: _idCounter++,
+    );
+  }
+
+  /// Calculates a "fit score" for a shape at a specific position.
+  /// Higher score means the block helps clear lines or fits tightly into the current grid.
+  double _calculatePlacementScore(List<List<int>> shape, int row, int col) {
+    double score = 0;
+
+    // 1. Line Progress & Completion Analysis
+    // Reward blocks that complete lines or get them closer to completion (Analyzing the grid's "need").
+    for (int r = 0; r < shape.length; r++) {
+      int targetR = row + r;
+      int existingInRow = 0;
+      for (int c = 0; c < cols; c++) {
+        if (boardState[targetR][c] != null || cartoonsGrid[targetR][c]) {
+          existingInRow++;
+        }
+      }
+
+      int addedInRow = 0;
+      for (int c = 0; c < shape[r].length; c++) {
+        if (shape[r][c] == 1) addedInRow++;
+      }
+
+      int totalAfter = existingInRow + addedInRow;
+      if (totalAfter == cols) {
+        score += 200; // Massive bonus for clearing a line
+      } else {
+        // High reward for filling lines that are already "needed"
+        score += (totalAfter * 5.0);
+      }
+    }
+
+    // Same for Columns
+    for (int c = 0; c < shape[0].length; c++) {
+      int targetC = col + c;
+      int existingInCol = 0;
+      for (int r = 0; r < rows; r++) {
+        if (boardState[r][targetC] != null || cartoonsGrid[r][targetC]) {
+          existingInCol++;
+        }
+      }
+
+      int addedInCol = 0;
+      for (int r = 0; r < shape.length; r++) {
+        if (shape[r][c] == 1) addedInCol++;
+      }
+
+      int totalAfter = existingInCol + addedInCol;
+      if (totalAfter == rows) {
+        score += 200;
+      } else {
+        score += (totalAfter * 5.0);
+      }
+    }
+
+    // 2. Adjacency & "Tightness" (Rewards filling gaps in the space)
+    int adjacencyCount = 0;
+    for (int r = 0; r < shape.length; r++) {
+      for (int c = 0; c < shape[r].length; c++) {
+        if (shape[r][c] == 1) {
+          int tr = row + r;
+          int tc = col + c;
+
+          final neighbors = [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ];
+          for (var dir in neighbors) {
+            int nr = tr + dir[0];
+            int nc = tc + dir[1];
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
+              adjacencyCount +=
+                  2; // Wall adjacency is great for space efficiency
+            } else if (boardState[nr][nc] != null || cartoonsGrid[nr][nc]) {
+              adjacencyCount += 3; // Filling gaps next to blocks is critical
+            }
+          }
+        }
+      }
+    }
+    score += adjacencyCount * 2.5;
+
+    // 3. Size Balance
+    int shapeSize = 0;
+    for (var rList in shape) {
+      for (var val in rList) {
+        if (val == 1) shapeSize++;
+      }
+    }
+
+    // Instead of rewarding large sizes, we give a slight boost to smaller blocks
+    // to keep them frequent, and larger blocks are only favored if they clear lines.
+    if (shapeSize <= 2) {
+      score += 15.0; // Flat bonus for small, versatile shapes
+    }
+
+    return score;
   }
 
   void _checkGameOver() {
@@ -262,15 +439,20 @@ class _GameScreenState extends State<GameScreen> {
   void _resetGame() {
     setState(() {
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
-      cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
-      _placeObstacles();
+      cartoonsGrid = List.generate(
+        rows,
+        (_) => List.generate(cols, (_) => false),
+      );
+      // _placeObstacles(); // Removed gray blocks as per user request
       _setupTargets();
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
-      _blockRandom = _isChallenge ? Random(_challengeSeed) : Random(_currentLevel * 1013 + 7); // reset block sequence
+      _blockRandom = _isChallenge
+          ? Random(_challengeSeed)
+          : Random(_currentLevel * 1013 + 7); // reset block sequence
       _fillNextBlocks();
     });
   }
@@ -316,9 +498,21 @@ class _GameScreenState extends State<GameScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('+$_challengeCoinReward 🪙', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  '+$_challengeCoinReward 🪙',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Text('+$_challengeGemReward 💎', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  '+$_challengeGemReward 💎',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ],
@@ -328,7 +522,7 @@ class _GameScreenState extends State<GameScreen> {
             child: ElevatedButton(
               onPressed: () async {
                 Get.back(); // close dialog
-                
+
                 final pc = Get.find<PlayerController>();
                 pc.addCoins(_challengeCoinReward);
                 pc.addGems(_challengeGemReward);
@@ -423,7 +617,7 @@ class _GameScreenState extends State<GameScreen> {
   void _nextLevel() {
     // Persistent progress update
     Get.find<LevelController>().completeLevel(_currentLevel);
-    
+
     // Reward player gems and coins for completing a level
     Get.find<PlayerController>().completeLevel(_currentLevel);
     Get.find<PlayerController>().addCoins(50);
@@ -431,15 +625,20 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       _currentLevel++;
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
-      cartoonsGrid = List.generate(rows, (_) => List.generate(cols, (_) => false));
-      _placeObstacles();
+      cartoonsGrid = List.generate(
+        rows,
+        (_) => List.generate(cols, (_) => false),
+      );
+      // _placeObstacles(); // Removed gray blocks as per user request
       _setupTargets();
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
-      _blockRandom = Random(_currentLevel * 1013 + 7); // reset block sequence for new level
+      _blockRandom = Random(
+        _currentLevel * 1013 + 7,
+      ); // reset block sequence for new level
       _fillNextBlocks();
     });
   }
@@ -452,7 +651,9 @@ class _GameScreenState extends State<GameScreen> {
           int targetC = col + c;
           if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols)
             return false;
-          if (boardState[targetR][targetC] != null || cartoonsGrid[targetR][targetC]) return false;
+          if (boardState[targetR][targetC] != null ||
+              cartoonsGrid[targetR][targetC])
+            return false;
         }
       }
     }
@@ -471,13 +672,22 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
       boardNode.playPlacementEffect(row, col, item.color);
-      _score += cellsPlaced;
+      // New logic: placement + cells + 5 bonus
+      _score += cellsPlaced + 5;
       Get.find<PlayerController>().addBlocksCleared(cellsPlaced);
-      
+
       nextBlocks.removeWhere((b) => b.id == item.id);
-      _fillNextBlocks();
+
+      // Update the board first to show the placed block
       boardNode.updateGrid(boardState, cartoonsGrid);
+
+      // IMPORTANT: Clear lines BEFORE checking for game over.
+      // Clearing lines frees up space, preventing premature game over.
       _checkLines();
+
+      // Now fill blocks or check if remaining ones can fit
+      _fillNextBlocks();
+
       _checkLevelProgression();
     });
   }
@@ -529,21 +739,20 @@ class _GameScreenState extends State<GameScreen> {
 
         for (var key in collectedThisTurn) {
           var parts = key.split(',');
-          int r = int.parse(parts[0]);
-          int c = int.parse(parts[1]);
-          cartoonsGrid[r][c] = false;
-          _collectedCartoons++;
-          if (_cartoonImage != null) {
-            boardNode.playCartoonCollectEffect(r, c, _cartoonImage!);
-          }
+          _collectCartoon(int.parse(parts[0]), int.parse(parts[1]));
         }
-        
-        // Base Score logic
+
+        // Cartoon collection score (20 pts per cartoon)
+        if (collectedThisTurn.isNotEmpty) {
+          _score += collectedThisTurn.length * 20;
+        }
+
+        // Line clear score logic (User specified)
         if (linesCleared == 1) _score += 10;
-        else if (linesCleared == 2) _score += 30;
-        else if (linesCleared == 3) _score += 60;
-        else if (linesCleared >= 4) _score += 100;
-        
+        if (linesCleared == 2) _score += 30;
+        if (linesCleared == 3) _score += 60;
+        if (linesCleared >= 4) _score += 100;
+
         // Combo update
         _combo++;
         if (_combo > 1) {
@@ -557,7 +766,7 @@ class _GameScreenState extends State<GameScreen> {
         if (_combo > 1) {
           earnedCoins += 10; // Combo clear coins
         }
-        
+
         Get.find<PlayerController>().addCoins(earnedCoins);
         Get.find<PlayerController>().addScore(_score);
 
@@ -566,6 +775,25 @@ class _GameScreenState extends State<GameScreen> {
     } else {
       _combo = 0; // Reset combo if no line cleared
     }
+  }
+
+  void _collectCartoon(int r, int c) {
+    setState(() {
+      cartoonsGrid[r][c] = false;
+      _collectedCartoons++;
+
+      // 1. Play "Sparkle" Particle Effect
+      boardNode.spawnParticleEffect(
+        r,
+        c,
+        const Color(0xffFDBA74),
+      ); // Light orange sparkle
+
+      // 2. Play Main Cartoon Sprite Animation (Float & Fade)
+      if (_cartoonImage != null) {
+        boardNode.playCartoonCollectEffect(r, c, _cartoonImage!);
+      }
+    });
   }
 
   @override
@@ -730,7 +958,9 @@ class _GameScreenState extends State<GameScreen> {
               value: progress,
               minHeight: 8,
               backgroundColor: const Color(0xffE2E8F0),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
         ],

@@ -26,7 +26,10 @@ class BoardNode extends Node {
     this.padding = 1.0,
   }) {
     _grid = List.generate(rows, (r) => List.generate(cols, (c) => null));
-    _cartoonsGrid = List.generate(rows, (r) => List.generate(cols, (c) => false));
+    _cartoonsGrid = List.generate(
+      rows,
+      (r) => List.generate(cols, (c) => false),
+    );
   }
 
   void updateGrid(List<List<Color?>> newGrid, List<List<bool>> newCartoons) {
@@ -44,20 +47,22 @@ class BoardNode extends Node {
 
     // Correct SpriteWidget motion usage
     motions.run(
-      MotionSequence(motions: [
-        MotionTween<double>(
-          setter: (v) => scale = v,
-          start: 1.0,
-          end: 1.03,
-          duration: 0.1,
-        ),
-        MotionTween<double>(
-          setter: (v) => scale = v,
-          start: 1.03,
-          end: 1.0,
-          duration: 0.1,
-        ),
-      ]),
+      MotionSequence(
+        motions: [
+          MotionTween<double>(
+            setter: (v) => scale = v,
+            start: 1.0,
+            end: 1.03,
+            duration: 0.1,
+          ),
+          MotionTween<double>(
+            setter: (v) => scale = v,
+            start: 1.03,
+            end: 1.0,
+            duration: 0.1,
+          ),
+        ],
+      ),
     );
   }
 
@@ -72,50 +77,63 @@ class BoardNode extends Node {
     }
   }
 
+  void spawnParticleEffect(int row, int col, Color color) {
+    final effect = EffectNode(color);
+    effect.position = Offset(
+      col * cellSize + cellSize / 2,
+      row * cellSize + cellSize / 2,
+    );
+    addChild(effect);
+  }
+
   void playCartoonCollectEffect(int row, int col, ui.Image image) {
     final texture = SpriteTexture(image);
     final sprite = Sprite(texture: texture);
-    
+
     final double targetWidth = cellSize - (padding * 2) + 15;
     // Approximate scale to match the painted rect
     sprite.scale = targetWidth / image.width;
-    
+
     // Position correctly in center of cell, moved slightly up for the taller target
     sprite.position = Offset(
       col * cellSize + cellSize / 2,
       row * cellSize + cellSize / 2 - 7.5,
     );
-    
+
     addChild(sprite);
 
     // Use SpriteWidget motions for collection animation
     motions.run(
-      MotionSequence(motions: [
-        MotionGroup(motions: [
-          MotionTween<double>(
-            setter: (v) => sprite.position = Offset(sprite.position.dx, v),
-            start: sprite.position.dy,
-            end: sprite.position.dy - 60,
-            duration: 0.6,
-            curve: Curves.easeOut,
+      MotionSequence(
+        motions: [
+          MotionGroup(
+            motions: [
+              MotionTween<double>(
+                setter: (v) => sprite.position = Offset(sprite.position.dx, v),
+                start: sprite.position.dy,
+                end: sprite.position.dy - 60,
+                duration: 0.6,
+                curve: Curves.easeOut,
+              ),
+              MotionTween<double>(
+                setter: (v) => sprite.scale = v,
+                start: sprite.scale,
+                end: sprite.scale * 1.5,
+                duration: 0.6,
+                curve: Curves.easeOut,
+              ),
+              MotionTween<double>(
+                setter: (v) => sprite.opacity = v,
+                start: 1.0,
+                end: 0.0,
+                duration: 0.6,
+                curve: Curves.easeIn,
+              ),
+            ],
           ),
-          MotionTween<double>(
-            setter: (v) => sprite.scale = v,
-            start: sprite.scale,
-            end: sprite.scale * 1.5,
-            duration: 0.6,
-            curve: Curves.easeOut,
-          ),
-          MotionTween<double>(
-            setter: (v) => sprite.opacity = v,
-            start: 1.0,
-            end: 0.0,
-            duration: 0.6,
-            curve: Curves.easeIn,
-          ),
-        ]),
-        MotionCallFunction(callback: () => sprite.removeFromParent()),
-      ]),
+          MotionCallFunction(callback: () => sprite.removeFromParent()),
+        ],
+      ),
     );
   }
 
@@ -208,7 +226,12 @@ class BoardNode extends Node {
           );
           canvas.drawImageRect(
             cartoonImage!,
-            Rect.fromLTWH(0, 0, cartoonImage!.width.toDouble(), cartoonImage!.height.toDouble()),
+            Rect.fromLTWH(
+              0,
+              0,
+              cartoonImage!.width.toDouble(),
+              cartoonImage!.height.toDouble(),
+            ),
             targetRect,
             Paint(),
           );
