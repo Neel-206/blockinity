@@ -1,5 +1,6 @@
 import 'package:blockinity/routes/app_routes.dart';
 import 'package:blockinity/ui/forgot_password.dart';
+import 'package:blockinity/ui/game_over.dart';
 import 'package:blockinity/ui/game_screen.dart';
 import 'package:blockinity/ui/gift_page.dart';
 import 'package:blockinity/ui/level_screen.dart';
@@ -20,6 +21,7 @@ class AppPages extends AppRoutes{
     GetPage(name: AppRoutes.world, page: () => WorldScreen()),
     GetPage(name: AppRoutes.game, page: () => GameScreen()),  
     GetPage(name: AppRoutes.levels, page: () => LevelScreen()),
-    GetPage(name: AppRoutes.gift, page: () => Dailygiftpage())
+    GetPage(name: AppRoutes.gift, page: () => Dailygiftpage()),
+    GetPage(name: AppRoutes.over, page: () => GameOver()),
   ];
 }

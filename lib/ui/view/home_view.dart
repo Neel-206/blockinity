@@ -202,7 +202,9 @@ class _HomeViewState extends State<HomeView>
                 child: _buildActionButton(
                   label: '',
                   icon: Icons.emoji_events_rounded,
-                  onTap: () {},
+                  onTap: () {
+                    Get.toNamed('/over');
+                  },
                 ),
               ),
             ],

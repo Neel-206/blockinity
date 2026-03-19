@@ -12,6 +12,7 @@ import 'package:blockinity/ui/view/game_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:blockinity/ui/game_over.dart';
 import 'package:spritewidget/spritewidget.dart';
 
 class NextBlockItem {
@@ -39,6 +40,8 @@ class _GameScreenState extends State<GameScreen> {
   int _score = 0;
   int _combo = 0;
   int _currentLevel = 1;
+  int _coinsEarnedInLevel = 0;
+  int _gemsEarnedInLevel = 0;
 
   // Challenge mode fields
   bool _isChallenge = false;
@@ -70,6 +73,10 @@ class _GameScreenState extends State<GameScreen> {
   Offset _dragPosition = Offset.zero;
   Offset _dragOffset = Offset.zero;
   final GlobalKey _boardKey = GlobalKey();
+
+  // Advanced Scoring logic
+  int _chain = 0;
+  DateTime? _lastPlacementTime;
 
   @override
   void initState() {
@@ -307,10 +314,14 @@ class _GameScreenState extends State<GameScreen> {
   double _calculatePlacementScore(List<List<int>> shape, int row, int col) {
     double score = 0;
 
-    // 1. Line Progress & Completion Analysis
-    // Reward blocks that complete lines or get them closer to completion (Analyzing the grid's "need").
+    // 1. Multi-Line & Multi-Column Completion Analysis
+    int linesCompleted = 0;
+
+    // Check Rows completion
     for (int r = 0; r < shape.length; r++) {
       int targetR = row + r;
+      if (targetR >= rows) continue;
+
       int existingInRow = 0;
       for (int c = 0; c < cols; c++) {
         if (boardState[targetR][c] != null || cartoonsGrid[targetR][c]) {
@@ -323,18 +334,16 @@ class _GameScreenState extends State<GameScreen> {
         if (shape[r][c] == 1) addedInRow++;
       }
 
-      int totalAfter = existingInRow + addedInRow;
-      if (totalAfter == cols) {
-        score += 200; // Massive bonus for clearing a line
-      } else {
-        // High reward for filling lines that are already "needed"
-        score += (totalAfter * 5.0);
+      if (existingInRow + addedInRow == cols) {
+        linesCompleted++;
       }
     }
 
-    // Same for Columns
+    // Check Columns completion
     for (int c = 0; c < shape[0].length; c++) {
       int targetC = col + c;
+      if (targetC >= cols) continue;
+
       int existingInCol = 0;
       for (int r = 0; r < rows; r++) {
         if (boardState[r][targetC] != null || cartoonsGrid[r][targetC]) {
@@ -347,15 +356,32 @@ class _GameScreenState extends State<GameScreen> {
         if (shape[r][c] == 1) addedInCol++;
       }
 
-      int totalAfter = existingInCol + addedInCol;
-      if (totalAfter == rows) {
-        score += 200;
-      } else {
-        score += (totalAfter * 5.0);
+      if (existingInCol + addedInCol == rows) {
+        linesCompleted++;
       }
     }
 
-    // 2. Adjacency & "Tightness" (Rewards filling gaps in the space)
+    // Reward for completing lines
+    if (linesCompleted >= 3) {
+      score += 3000; // Super high priority for Triple+ clears
+    } else if (linesCompleted == 2) {
+      score += 1200; // High priority for Double clears
+    } else if (linesCompleted == 1) {
+      score += 400; // Basic priority for Single clears
+    }
+
+    // 2. Filling "Gaps" (Reward for filling lines that are ALMOST full)
+    // This helps set up future combos
+    for (int r = 0; r < shape.length; r++) {
+      int targetR = row + r;
+      if (targetR >= rows) continue;
+      int count = 0;
+      for (int c = 0; c < cols; c++)
+        if (boardState[targetR][c] != null) count++;
+      if (count >= cols - 2) score += 50; // Points for nearing completion
+    }
+
+    // 3. Adjacency & "Tightness"
     int adjacencyCount = 0;
     for (int r = 0; r < shape.length; r++) {
       for (int c = 0; c < shape[r].length; c++) {
@@ -373,10 +399,9 @@ class _GameScreenState extends State<GameScreen> {
             int nr = tr + dir[0];
             int nc = tc + dir[1];
             if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
-              adjacencyCount +=
-                  2; // Wall adjacency is great for space efficiency
-            } else if (boardState[nr][nc] != null || cartoonsGrid[nr][nc]) {
-              adjacencyCount += 3; // Filling gaps next to blocks is critical
+              adjacencyCount += 2;
+            } else if (boardState[nr][nc] != null) {
+              adjacencyCount += 3;
             }
           }
         }
@@ -384,19 +409,10 @@ class _GameScreenState extends State<GameScreen> {
     }
     score += adjacencyCount * 2.5;
 
-    // 3. Size Balance
+    // 4. Size Balance
     int shapeSize = 0;
-    for (var rList in shape) {
-      for (var val in rList) {
-        if (val == 1) shapeSize++;
-      }
-    }
-
-    // Instead of rewarding large sizes, we give a slight boost to smaller blocks
-    // to keep them frequent, and larger blocks are only favored if they clear lines.
-    if (shapeSize <= 2) {
-      score += 15.0; // Flat bonus for small, versatile shapes
-    }
+    for (var rList in shape) for (var val in rList) if (val == 1) shapeSize++;
+    if (shapeSize <= 2) score += 20.0;
 
     return score;
   }
@@ -418,21 +434,25 @@ class _GameScreenState extends State<GameScreen> {
 
     if (!canPlaceAny && nextBlocks.isNotEmpty) {
       Get.find<PlayerController>().addScore(_score);
-      Get.dialog(
-        AlertDialog(
-          title: const Text('Game Over'),
-          content: Text('Your score: $_score'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Get.back();
-                _resetGame();
-              },
-              child: const Text('Restart'),
-            ),
-          ],
-        ),
-      );
+      
+      Get.to(() => const GameOver(), arguments: {
+        'score': _score,
+        'bestScore': Get.find<PlayerController>().highestScore.value,
+        'level': _currentLevel,
+        'stars': 0, // No stars on loss
+        'levelProgress': (_score / _targetScore).clamp(0.0, 1.0),
+        'isWin': false,
+        'earnedCoins': _coinsEarnedInLevel,
+        'earnedGems': _gemsEarnedInLevel,
+      })?.then((result) {
+        if (result == 'retry') {
+          _resetGame();
+        } else if (result == 'next' && _score >= _targetScore) {
+          _nextLevel();
+        } else {
+          Get.back(); // Go home
+        }
+      });
     }
   }
 
@@ -448,6 +468,7 @@ class _GameScreenState extends State<GameScreen> {
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
+      _coinsEarnedInLevel = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
       _blockRandom = _isChallenge
@@ -551,67 +572,24 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showLevelUpDialog() {
-    Get.dialog(
-      barrierDismissible: false,
-      AlertDialog(
-        backgroundColor: const Color(0xffF8F9FB),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Center(
-          child: Text(
-            'LEVEL UP!',
-            style: GoogleFonts.sourGummy(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Goal Reached!',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff475569),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Welcome to Level ${_currentLevel + 1}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xff64748B),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Get.back();
-                _nextLevel();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text('CONTINUE'),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
+    Get.to(() => const GameOver(), arguments: {
+      'score': _score,
+      'bestScore': Get.find<PlayerController>().highestScore.value,
+      'level': _currentLevel,
+      'stars': 3, // Full stars on level clear
+      'levelProgress': 1.0,
+      'isWin': true,
+      'earnedCoins': _coinsEarnedInLevel + 50, // Including level clear bonus
+      'earnedGems': _gemsEarnedInLevel + 1, // Including level clear gem bonus
+    })?.then((result) {
+      if (result == 'retry') {
+        _resetGame();
+      } else if (result == 'next') {
+        _nextLevel();
+      } else {
+        Get.back(); // Go home
+      }
+    });
   }
 
   void _nextLevel() {
@@ -634,6 +612,7 @@ class _GameScreenState extends State<GameScreen> {
       boardNode.updateGrid(boardState, cartoonsGrid);
       _score = 0;
       _combo = 0;
+      _coinsEarnedInLevel = 0;
       _collectedCartoons = 0;
       nextBlocks.clear();
       _blockRandom = Random(
@@ -672,8 +651,90 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
       boardNode.playPlacementEffect(row, col, item.color);
-      // New logic: placement + cells + 5 bonus
-      _score += cellsPlaced + 5;
+
+      // Block placement score with increased size multiplier
+      double sizeMultiplier = 1.0;
+      if (cellsPlaced >= 9) {
+        sizeMultiplier = 3.0;
+      } else if (cellsPlaced >= 5) {
+        sizeMultiplier = 2.5;
+      } else if (cellsPlaced >= 4) {
+        sizeMultiplier = 2.0;
+      } else if (cellsPlaced >= 3) {
+        sizeMultiplier = 1.5;
+      }
+
+      _score += (cellsPlaced * sizeMultiplier).toInt();
+
+      // Smart Placement Bonus (Tight Fit - increased)
+      int adjacentCount = 0;
+      int totalOuterEdges = 0;
+      bool isCornerOrEdge = false;
+      for (int r = 0; r < item.shape.length; r++) {
+        for (int c = 0; c < item.shape[r].length; c++) {
+          if (item.shape[r][c] == 1) {
+            int tr = row + r;
+            int tc = col + c;
+
+            // 4. Edge / Corner Bonus - increased
+            if (tr == 0 || tr == rows - 1 || tc == 0 || tc == cols - 1) {
+              isCornerOrEdge = true;
+            }
+
+            final neighbors = [
+              [-1, 0],
+              [1, 0],
+              [0, -1],
+              [0, 1],
+            ];
+            for (var dir in neighbors) {
+              int nr = tr + dir[0];
+              int nc = tc + dir[1];
+              totalOuterEdges++;
+              if (nr < 0 ||
+                  nr >= rows ||
+                  nc < 0 ||
+                  nc >= cols ||
+                  boardState[nr][nc] != null ||
+                  cartoonsGrid[nr][nc]) {
+                adjacentCount++;
+              }
+            }
+          }
+        }
+      }
+      // Tight fit bonus - increased to +10
+      if (totalOuterEdges > 0 && (adjacentCount / totalOuterEdges) > 0.7) {
+        _score += 10;
+      }
+
+      // Edge / Corner addition - increased to +5
+      if (isCornerOrEdge) _score += 5;
+
+      // 5. Chain Bonus (Fast Placement - increased)
+      final now = DateTime.now();
+      if (_lastPlacementTime != null &&
+          now.difference(_lastPlacementTime!).inSeconds < 3) {
+        _chain++;
+        _score += _chain * 5; // Multiplied chain bonus
+      } else {
+        _chain = 0;
+      }
+      _lastPlacementTime = now;
+
+      // 6. Future Benefit Bonus (Completes a line soon - increased)
+      bool helpsCompleteLine = false;
+      // Check involved rows
+      for (int r = 0; r < item.shape.length; r++) {
+        int tr = row + r;
+        if (tr >= rows) continue;
+        int count = 0;
+        for (int c = 0; c < cols; c++)
+          if (boardState[tr][c] != null || cartoonsGrid[tr][c]) count++;
+        if (count == cols - 1 || count == cols - 2) helpsCompleteLine = true;
+      }
+      if (helpsCompleteLine) _score += 10;
+
       Get.find<PlayerController>().addBlocksCleared(cellsPlaced);
 
       nextBlocks.removeWhere((b) => b.id == item.id);
@@ -742,23 +803,39 @@ class _GameScreenState extends State<GameScreen> {
           _collectCartoon(int.parse(parts[0]), int.parse(parts[1]));
         }
 
-        // Cartoon collection score (20 pts per cartoon)
+        // Cartoon collection score - increased to 50 pts per cartoon
         if (collectedThisTurn.isNotEmpty) {
-          _score += collectedThisTurn.length * 20;
+          _score += collectedThisTurn.length * 50;
         }
 
-        // Line clear score logic (User specified)
-        if (linesCleared == 1) _score += 10;
-        if (linesCleared == 2) _score += 30;
-        if (linesCleared == 3) _score += 60;
-        if (linesCleared >= 4) _score += 100;
+        // Cross Clear Bonus (Clearing rows and columns simultaneously)
+        bool isCrossClear = fullRows.isNotEmpty && fullCols.isNotEmpty;
+        if (isCrossClear) {
+          _score += 50;
+        }
 
-        // Combo update
+        // Line clear score logic (Dramatically increased rewards)
+        if (linesCleared == 1)
+          _score += 20;
+        else if (linesCleared == 2)
+          _score += 80;
+        else if (linesCleared == 3)
+          _score += 180;
+        else if (linesCleared >= 4)
+          _score += 400;
+
+        // Multi-Line Bonus - increased to +20 per extra line
+        if (linesCleared > 1) {
+          _score += (linesCleared - 1) * 20;
+        }
+
+        // Combo update - increased to _combo * 20
         _combo++;
-        if (_combo > 1) {
-          _score += _combo * 10; // Combo score
-        } else {
-          _score += 10; // First combo gives 10 per the logic Example logic
+        _score += _combo * 20;
+
+        // Big Clear Bonus (Triple / Quadruple clears - increased to 50)
+        if (linesCleared >= 3) {
+          _score += 50;
         }
 
         // Coins rewards
@@ -767,10 +844,26 @@ class _GameScreenState extends State<GameScreen> {
           earnedCoins += 10; // Combo clear coins
         }
 
+        _coinsEarnedInLevel += earnedCoins;
         Get.find<PlayerController>().addCoins(earnedCoins);
         Get.find<PlayerController>().addScore(_score);
 
         boardNode.updateGrid(boardState, cartoonsGrid);
+
+        // 6. Board Clear Bonus - increased to +500 jackpot
+        bool isBoardEmpty = true;
+        for (int r = 0; r < rows; r++) {
+          for (int c = 0; c < cols; c++) {
+            if (boardState[r][c] != null || cartoonsGrid[r][c]) {
+              isBoardEmpty = false;
+              break;
+            }
+          }
+          if (!isBoardEmpty) break;
+        }
+        if (isBoardEmpty) {
+          _score += 500; // Super Jackpot
+        }
       });
     } else {
       _combo = 0; // Reset combo if no line cleared

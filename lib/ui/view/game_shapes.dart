@@ -16,6 +16,14 @@ class GameShapes {
     [1, 1],
     [1, 0],
   ];
+  static const List<List<int>> trioVertical = [
+    [1],
+    [1],
+    [1],
+  ];
+  static const List<List<int>> duoHorizontalAlt = [
+    [1, 1],
+  ];
 
   // --- Medium Shapes (4 blocks) ---
   static const List<List<int>> tShape = [
@@ -33,6 +41,12 @@ class GameShapes {
   ];
   static const List<List<int>> line4 = [
     [1, 1, 1, 1],
+  ];
+  static const List<List<int>> line4Vertical = [
+    [1],
+    [1],
+    [1],
+    [1],
   ];
   static const List<List<int>> zShape = [
     [1, 1, 0],
@@ -62,23 +76,33 @@ class GameShapes {
     [1, 1, 1],
     [1, 1, 1],
   ];
+  static const List<List<int>> line5Vertical = [
+    [1],
+    [1],
+    [1],
+    [1],
+    [1],
+  ];
 
   static const List<List<List<int>>> smallShapes = [
     single,
     duoHorizontal,
     duoVertical,
     cornerSmall,
+    trioVertical,
   ];
   static const List<List<List<int>>> mediumShapes = [
     tShape,
     lShape,
     square,
     line4,
+    line4Vertical,
     zShape,
     sShape,
   ];
   static const List<List<List<int>>> largeShapes = [
     line5,
+    line5Vertical,
     lShapeLarge,
     cross,
     bigSquare,

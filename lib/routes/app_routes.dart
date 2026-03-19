@@ -9,6 +9,7 @@ abstract class AppRoutes {
   static const String setting = '/setting';
   static const String levels = '/levels';
   static const String gift = '/gift';
+  static const String over = '/over';
 }
 
 
