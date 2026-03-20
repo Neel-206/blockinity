@@ -9,6 +9,7 @@ import 'package:blockinity/ui/login_screen.dart';
 import 'package:blockinity/ui/ragister_screen.dart';
 import 'package:blockinity/ui/splase_screen.dart';
 import 'package:blockinity/ui/world_screen.dart';
+import 'package:blockinity/ui/challenges_calendar_screen.dart';
 import 'package:get/get.dart';
 
 class AppPages extends AppRoutes{
@@ -23,5 +24,6 @@ class AppPages extends AppRoutes{
     GetPage(name: AppRoutes.levels, page: () => LevelScreen()),
     GetPage(name: AppRoutes.gift, page: () => Dailygiftpage()),
     GetPage(name: AppRoutes.over, page: () => GameOver()),
+    GetPage(name: AppRoutes.challenges, page: () => const ChallengesCalendarScreen()),
   ];
 }

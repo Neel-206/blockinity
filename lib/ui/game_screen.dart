@@ -51,6 +51,14 @@ class _GameScreenState extends State<GameScreen> {
   // int _challengeObstacles = 0; // Removed unused field
   int _challengeCoinReward = 0;
   int _challengeGemReward = 0;
+  DateTime? _challengeDate;
+  int _challengeTargetLines = 0;
+  int _challengeTargetCombos = 0;
+  int _challengeTargetPerfectFits = 0;
+
+  int _linesClearedInLevel = 0;
+  int _combosAchievedInLevel = 0;
+  int _perfectFitsInLevel = 0;
 
   int get _targetScore =>
       _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 150);
@@ -90,6 +98,10 @@ class _GameScreenState extends State<GameScreen> {
       // _challengeObstacles = args['obstacles'] as int; // Removed unused extraction
       _challengeCoinReward = args['coinReward'] as int;
       _challengeGemReward = args['gemReward'] as int;
+      _challengeDate = args['challengeDate'] as DateTime?;
+      _challengeTargetLines = args['targetLines'] ?? 0;
+      _challengeTargetCombos = args['targetCombos'] ?? 0;
+      _challengeTargetPerfectFits = args['targetPerfectFits'] ?? 0;
       _blockRandom = Random(_challengeSeed);
     } else {
       _currentLevel = (args as int?) ?? 1;
@@ -434,17 +446,20 @@ class _GameScreenState extends State<GameScreen> {
 
     if (!canPlaceAny && nextBlocks.isNotEmpty) {
       Get.find<PlayerController>().addScore(_score);
-      
-      Get.to(() => const GameOver(), arguments: {
-        'score': _score,
-        'bestScore': Get.find<PlayerController>().highestScore.value,
-        'level': _currentLevel,
-        'stars': 0, // No stars on loss
-        'levelProgress': (_score / _targetScore).clamp(0.0, 1.0),
-        'isWin': false,
-        'earnedCoins': _coinsEarnedInLevel,
-        'earnedGems': _gemsEarnedInLevel,
-      })?.then((result) {
+
+      Get.to(
+        () => const GameOver(),
+        arguments: {
+          'score': _score,
+          'bestScore': Get.find<PlayerController>().highestScore.value,
+          'level': _currentLevel,
+          'stars': 0, // No stars on loss
+          'levelProgress': (_score / _targetScore).clamp(0.0, 1.0),
+          'isWin': false,
+          'earnedCoins': _coinsEarnedInLevel,
+          'earnedGems': _gemsEarnedInLevel,
+        },
+      )?.then((result) {
         if (result == 'retry') {
           _resetGame();
         } else if (result == 'next' && _score >= _targetScore) {
@@ -470,6 +485,9 @@ class _GameScreenState extends State<GameScreen> {
       _combo = 0;
       _coinsEarnedInLevel = 0;
       _collectedCartoons = 0;
+      _linesClearedInLevel = 0;
+      _combosAchievedInLevel = 0;
+      _perfectFitsInLevel = 0;
       nextBlocks.clear();
       _blockRandom = _isChallenge
           ? Random(_challengeSeed)
@@ -479,7 +497,18 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _checkLevelProgression() {
-    if (_score >= _targetScore && _collectedCartoons >= _targetCartoons) {
+    bool scoreMet = _score >= _targetScore;
+    bool cartoonsMet = _collectedCartoons >= _targetCartoons;
+
+    // Additional challenge objectives
+    bool linesMet =
+        !_isChallenge || _linesClearedInLevel >= _challengeTargetLines;
+    bool combosMet =
+        !_isChallenge || _combosAchievedInLevel >= _challengeTargetCombos;
+    bool fitsMet =
+        !_isChallenge || _perfectFitsInLevel >= _challengeTargetPerfectFits;
+
+    if (scoreMet && cartoonsMet && linesMet && combosMet && fitsMet) {
       if (_isChallenge) {
         _showChallengeCompleteDialog();
       } else {
@@ -542,14 +571,23 @@ class _GameScreenState extends State<GameScreen> {
           Center(
             child: ElevatedButton(
               onPressed: () async {
-                Get.back(); // close dialog
-
                 final pc = Get.find<PlayerController>();
                 pc.addCoins(_challengeCoinReward);
                 pc.addGems(_challengeGemReward);
-                await DailyChallengeService().markTodayCompleted();
 
-                Get.back(); // return to home screen
+                // Show a loading indicator if necessary or just await the fast DB call
+                if (_challengeDate != null) {
+                  await DailyChallengeService().markCompleted(_challengeDate!);
+                } else {
+                  await DailyChallengeService().markTodayCompleted();
+                }
+
+                // Explicitly return to the challenges calendar screen
+                Get.until(
+                  (route) =>
+                      Get.currentRoute == '/challenges' ||
+                      route.settings.name == '/challenges',
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
@@ -572,16 +610,19 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showLevelUpDialog() {
-    Get.to(() => const GameOver(), arguments: {
-      'score': _score,
-      'bestScore': Get.find<PlayerController>().highestScore.value,
-      'level': _currentLevel,
-      'stars': 3, // Full stars on level clear
-      'levelProgress': 1.0,
-      'isWin': true,
-      'earnedCoins': _coinsEarnedInLevel + 50, // Including level clear bonus
-      'earnedGems': _gemsEarnedInLevel + 1, // Including level clear gem bonus
-    })?.then((result) {
+    Get.to(
+      () => const GameOver(),
+      arguments: {
+        'score': _score,
+        'bestScore': Get.find<PlayerController>().highestScore.value,
+        'level': _currentLevel,
+        'stars': 3, // Full stars on level clear
+        'levelProgress': 1.0,
+        'isWin': true,
+        'earnedCoins': _coinsEarnedInLevel + 50, // Including level clear bonus
+        'earnedGems': _gemsEarnedInLevel + 1, // Including level clear gem bonus
+      },
+    )?.then((result) {
       if (result == 'retry') {
         _resetGame();
       } else if (result == 'next') {
@@ -614,6 +655,9 @@ class _GameScreenState extends State<GameScreen> {
       _combo = 0;
       _coinsEarnedInLevel = 0;
       _collectedCartoons = 0;
+      _linesClearedInLevel = 0;
+      _combosAchievedInLevel = 0;
+      _perfectFitsInLevel = 0;
       nextBlocks.clear();
       _blockRandom = Random(
         _currentLevel * 1013 + 7,
@@ -706,6 +750,7 @@ class _GameScreenState extends State<GameScreen> {
       // Tight fit bonus - increased to +10
       if (totalOuterEdges > 0 && (adjacentCount / totalOuterEdges) > 0.7) {
         _score += 10;
+        _perfectFitsInLevel++;
       }
 
       // Edge / Corner addition - increased to +5
@@ -831,7 +876,12 @@ class _GameScreenState extends State<GameScreen> {
 
         // Combo update - increased to _combo * 20
         _combo++;
+        if (_combo > 1) {
+          _combosAchievedInLevel++;
+        }
         _score += _combo * 20;
+
+        _linesClearedInLevel += linesCleared;
 
         // Big Clear Bonus (Triple / Quadruple clears - increased to 50)
         if (linesCleared >= 3) {
@@ -1026,12 +1076,15 @@ class _GameScreenState extends State<GameScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'GOAL: $_targetScore | CARTOONS: $_collectedCartoons/$_targetCartoons',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff94A3B8),
+              Expanded(
+                child: Text(
+                  _buildGoalString(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff94A3B8),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
@@ -1059,6 +1112,27 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
+  }
+
+  String _buildGoalString() {
+    if (!_isChallenge) {
+      return 'GOAL: $_targetScore | CARTOONS: $_collectedCartoons/$_targetCartoons';
+    }
+
+    List<String> goals = [];
+    goals.add('SCORE: $_score/$_challengeTargetScore');
+    goals.add('TARGETS: $_collectedCartoons/$_challengeTargetCartoons');
+    if (_challengeTargetLines > 0) {
+      goals.add('LINES: $_linesClearedInLevel/$_challengeTargetLines');
+    }
+    if (_challengeTargetCombos > 0) {
+      goals.add('COMBOS: $_combosAchievedInLevel/$_challengeTargetCombos');
+    }
+    if (_challengeTargetPerfectFits > 0) {
+      goals.add('PERFECT: $_perfectFitsInLevel/$_challengeTargetPerfectFits');
+    }
+
+    return goals.join(' | ');
   }
 
   Widget _buildPauseButton() => Container(

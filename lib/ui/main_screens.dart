@@ -1,5 +1,5 @@
 import 'package:blockinity/Controller/level_controller.dart';
-import 'package:blockinity/Services/daily_challenge_service.dart';
+
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:blockinity/ui/view/home_view.dart';
 import 'package:flutter/material.dart';
@@ -470,40 +470,10 @@ class ShowBottomSheet extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () async {
-                  // Step 1: Get today's date & generate challenge
-                  final service   = DailyChallengeService();
-                  final config    = DailyChallengeService.generateTodayChallenge();
-
-                  // Step 2: Check if already completed today
-                  final completed = await service.isTodayCompleted();
-
-                  if (completed) {
-                    // Already claimed — close sheet and inform user
-                    if (context.mounted) Navigator.of(context).pop();
-                    Get.snackbar(
-                      '✅ Already Done!',
-                      'You completed today\'s challenge. Come back tomorrow!',
-                      backgroundColor: AppColors.success,
-                      colorText: Colors.white,
-                      snackPosition: SnackPosition.BOTTOM,
-                      duration: const Duration(seconds: 3),
-                    );
-                    return;
-                  }
-
-                  // Step 3: Close sheet & start game with challenge config
+                onTap: () {
                   if (context.mounted) Navigator.of(context).pop();
-                  Get.toNamed('/game', arguments: {
-                    'isChallenge'    : true,
-                    'challengeSeed'  : config.seed,
-                    'targetScore'    : config.targetScore,
-                    'targetCartoons' : config.targetCartoons,
-                    'obstacles'      : config.obstacles,
-                    'coinReward'     : config.coinReward,
-                    'gemReward'      : config.gemReward,
-                  });
-                 },
+                  Get.toNamed('/challenges');
+                },
                 child: Column(
                   children: [
                     Container(

@@ -9,11 +9,12 @@ class GameOver extends StatelessWidget {
   Widget build(BuildContext context) {
     final Map<String, dynamic> args = Get.arguments ?? {};
     final int score = args['score'] ?? 0;
+    final int earnedCoins = args['earnedCoins'] ?? 0;
     final int earnedGems = args['earnedGems'] ?? 0;
     final int stars = args['stars'] ?? 0;
     final bool isWin = args['isWin'] ?? false;
-    final String title1 = args['title1'] ?? (isWin ? 'LEVEL' : 'GAME');
-    final String title2 = args['title2'] ?? (isWin ? 'CLEAR' : 'OVER');
+    final String title1 = args['title1'] ?? (isWin ? 'LEVEL' : 'TRY');
+    final String title2 = args['title2'] ?? (isWin ? 'CLEAR' : 'AGAIN');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -28,9 +29,9 @@ class GameOver extends StatelessWidget {
                 const SizedBox(height: 5),
                 _buildStarCard(stars, score),
                 const SizedBox(height: 20),
-                _buildScoreRow(score, earnedGems),
+                _buildScoreRow(earnedCoins, earnedGems),
                 const SizedBox(height: 20),
-                _buildActionButtons(),
+                _buildActionButtons(isWin),
                 const SizedBox(height: 24),
               ],
             ),
@@ -191,9 +192,9 @@ class GameOver extends StatelessWidget {
           ),
           Text(
             score.toString().replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (m) => '${m[1]},',
-                ),
+              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+              (m) => '${m[1]},',
+            ),
             style: GoogleFonts.poppins(
               fontSize: 40,
               fontWeight: FontWeight.w900,
@@ -205,17 +206,16 @@ class GameOver extends StatelessWidget {
     );
   }
 
-
-  Widget _buildScoreRow(int score, int earnedGems) {
+  Widget _buildScoreRow(int earnedCoins, int earnedGems) {
     return Row(
       children: [
         Expanded(
           child: _buildScoreBox(
-            'TOTAL SCORE',
-            score.toString().replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (m) => '${m[1]},',
-                ),
+            'EARNED COINS',
+            earnedCoins.toString().replaceAllMapped(
+              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+              (m) => '${m[1]},',
+            ),
             const Color(0xFFFDE4D4),
           ),
         ),
@@ -224,9 +224,9 @@ class GameOver extends StatelessWidget {
           child: _buildScoreBox(
             'GEMS ACHIEVED',
             earnedGems.toString().replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (m) => '${m[1]},',
-                ),
+              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+              (m) => '${m[1]},',
+            ),
             const Color(0xFFE9F1F7),
           ),
         ),
@@ -266,20 +266,24 @@ class GameOver extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(bool isWin) {
     return Column(
       children: [
         SizedBox(
           width: double.infinity,
           height: 64,
           child: ElevatedButton(
-            onPressed: () {
-              Get.back(result: 'next');
-            },
+            onPressed: isWin
+                ? () {
+                    Get.back(result: 'next');
+                  }
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF46B22),
               foregroundColor: Colors.white,
-              elevation: 4,
+              disabledBackgroundColor: const Color(0xFFE2E8F0),
+              disabledForegroundColor: const Color(0xFF94A3B8),
+              elevation: isWin ? 4 : 0,
               shadowColor: const Color(0xFFF46B22).withOpacity(0.4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
