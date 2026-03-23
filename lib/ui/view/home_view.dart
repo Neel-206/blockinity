@@ -193,7 +193,7 @@ class _HomeViewState extends State<HomeView>
                   label: '',
                   icon: Icons.settings_rounded,
                   onTap: () {
-                    
+                    Get.toNamed('/setting');
                   },
                 ),
               ),
@@ -203,7 +203,7 @@ class _HomeViewState extends State<HomeView>
                   label: '',
                   icon: Icons.emoji_events_rounded,
                   onTap: () {
-                    Get.toNamed('/over');
+                    Get.toNamed('/challenges');
                   },
                 ),
               ),

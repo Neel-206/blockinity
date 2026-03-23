@@ -7,6 +7,7 @@ import 'package:blockinity/ui/level_screen.dart';
 import 'package:blockinity/ui/main_screens.dart';
 import 'package:blockinity/ui/login_screen.dart';
 import 'package:blockinity/ui/ragister_screen.dart';
+import 'package:blockinity/ui/settings_screen.dart';
 import 'package:blockinity/ui/splase_screen.dart';
 import 'package:blockinity/ui/world_screen.dart';
 import 'package:blockinity/ui/challenges_calendar_screen.dart';
@@ -25,5 +26,6 @@ class AppPages extends AppRoutes{
     GetPage(name: AppRoutes.gift, page: () => Dailygiftpage()),
     GetPage(name: AppRoutes.over, page: () => GameOver()),
     GetPage(name: AppRoutes.challenges, page: () => const ChallengesCalendarScreen()),
+    GetPage(name: AppRoutes.setting, page: () => const SettingsScreen()),
   ];
 }
