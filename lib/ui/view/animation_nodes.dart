@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:spritewidget/spritewidget.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// A background node that creates a dynamic, animated atmosphere
 class BackgroundLayerNode extends Node {
@@ -103,5 +104,115 @@ class EffectNode extends Node {
       double dist = (1.0 - _life) * 100.0;
       canvas.drawCircle(dir * dist, 5.0 * _life, paint);
     }
+  }
+}
+
+class BlastEffectNode extends Node {
+  final Color color;
+  final int intensity; // 1 for small, 2 for big, 3 for super
+  double _life = 1.0;
+  final List<Offset> _dirs;
+  final List<double> _speeds;
+
+  BlastEffectNode(this.color, {this.intensity = 1})
+    : _dirs = List.generate(16 * intensity, (i) {
+        double angle = (i * 2 * pi) / (16 * intensity);
+        return Offset(cos(angle), sin(angle));
+      }),
+      _speeds = List.generate(
+        16 * intensity,
+        (i) => Random().nextDouble() * 0.5 + 0.5,
+      );
+
+  @override
+  void update(double dt) {
+    _life -= dt * (1.5 / intensity);
+    if (_life <= 0) removeFromParent();
+  }
+
+  @override
+  void paint(Canvas canvas) {
+    final paint = Paint()
+      ..color = color.withOpacity(_life.clamp(0.0, 1.0))
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < _dirs.length; i++) {
+      double dist = (1.0 - _life) * 250.0 * intensity * _speeds[i];
+      canvas.drawCircle(
+        _dirs[i] * dist,
+        (intensity == 3 ? 12.0 : 8.0) * _life,
+        paint,
+      );
+    }
+
+    // Add a central flash for high intensity
+    if (intensity >= 2) {
+      final flashPaint = Paint()
+        ..color = Colors.white.withOpacity(_life.clamp(0.0, 0.8))
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset.zero, 40.0 * _life * intensity, flashPaint);
+    }
+  }
+}
+
+class ComboTextNode extends Node {
+  final String text;
+  final Color color;
+  double _life = 1.0;
+  final double _scale;
+
+  ComboTextNode(this.text, this.color, {double scale = 1.0}) : _scale = scale;
+
+  @override
+  void update(double dt) {
+    _life -= dt * 0.8;
+    if (_life <= 0) {
+      removeFromParent();
+    }
+  }
+
+  @override
+  void paint(Canvas canvas) {
+    if (_life <= 0) return;
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: GoogleFonts.sourGummy(
+          color: color.withOpacity(_life.clamp(0.0, 1.0)),
+          fontSize: 34 * _scale,
+          fontWeight: FontWeight.w900,
+        ).copyWith(
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(_life.clamp(0.0, 0.4)),
+              blurRadius: 10,
+              offset: const Offset(3, 3),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    textPainter.layout();
+
+    canvas.save();
+    // Float up
+    canvas.translate(0, - (1.0 - _life) * 80);
+    
+    // Bounce-in scale effect
+    double currentScale = 1.0;
+    if (_life > 0.85) {
+      currentScale = 1.0 + (1.0 - (_life - 0.85) / 0.15) * 0.4;
+    }
+
+    canvas.scale(currentScale, currentScale);
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
+    );
+    canvas.restore();
   }
 }

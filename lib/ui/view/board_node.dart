@@ -86,6 +86,22 @@ class BoardNode extends Node {
     addChild(effect);
   }
 
+  void playBlastEffect(int row, int col, Color color, int intensity) {
+    final effect = BlastEffectNode(color, intensity: intensity);
+    effect.position = Offset(
+      col * cellSize + cellSize / 2,
+      row * cellSize + cellSize / 2,
+    );
+    addChild(effect);
+  }
+
+  void playComboFeedback(String text, Color color, double scale) {
+    final node = ComboTextNode(text, color, scale: scale);
+    // Place in the middle upper part of the board
+    node.position = Offset(cols * cellSize / 2, rows * cellSize / 3);
+    addChild(node);
+  }
+
   void playCartoonCollectEffect(int row, int col, ui.Image image) {
     final texture = SpriteTexture(image);
     final sprite = Sprite(texture: texture);

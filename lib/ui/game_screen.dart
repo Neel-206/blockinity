@@ -874,12 +874,16 @@ class _GameScreenState extends State<GameScreen> {
           _score += (linesCleared - 1) * 20;
         }
 
-        // Combo update - increased to _combo * 20
+        // --- COMBO BLAST LOGIC ---
         _combo++;
         if (_combo > 1) {
           _combosAchievedInLevel++;
         }
-        _score += _combo * 20;
+        // User requested: score += combo * 10
+        _score += _combo * 10;
+
+        // Visual Feedback & Blast Effects
+        _handleComboEffects(fullRows.isNotEmpty ? fullRows[0] : 0, fullCols.isNotEmpty ? fullCols[0] : 0);
 
         _linesClearedInLevel += linesCleared;
 
@@ -918,6 +922,60 @@ class _GameScreenState extends State<GameScreen> {
     } else {
       _combo = 0; // Reset combo if no line cleared
     }
+  }
+
+  void _handleComboEffects(int seedRow, int seedCol) {
+    String? title;
+    String? subtitle;
+    Color color = AppColors.primary;
+
+    if (_combo == 2) {
+      title = "Nice!";
+      subtitle = "Combo x2 ✨";
+      color = Colors.blueAccent;
+    } else if (_combo == 3) {
+      title = "Great!";
+      subtitle = "Combo x3 🔥";
+      color = Colors.orange;
+      boardNode.playBlastEffect(seedRow, seedCol, Colors.orange, 1);
+    } else if (_combo == 5) {
+      title = "Amazing!";
+      subtitle = "Combo x5 💥";
+      color = Colors.red;
+      boardNode.playBlastEffect(seedRow, seedCol, Colors.red, 2);
+      _triggerAutoClear();
+    } else if (_combo >= 7) {
+      title = "UNSTOPPABLE!";
+      subtitle = "Combo x${_combo} 🔥🔥";
+      color = Colors.deepPurple;
+      boardNode.playBlastEffect(seedRow, seedCol, Colors.deepPurple, 3);
+    }
+
+    if (title != null) {
+      boardNode.playComboFeedback(
+        "$title\n$subtitle",
+        color,
+        _combo >= 5 ? 1.4 : 1.0,
+      );
+    }
+  }
+
+  void _triggerAutoClear() {
+    // Blast x5: Auto clear 1 random row
+    int randomRow = Random().nextInt(rows);
+    setState(() {
+      for (int c = 0; c < cols; c++) {
+        if (boardState[randomRow][c] != null) {
+          boardState[randomRow][c] = null;
+        }
+        if (cartoonsGrid[randomRow][c]) {
+          _collectCartoon(randomRow, c);
+        }
+      }
+      boardNode.playLineClearEffect(randomRow, true);
+      boardNode.updateGrid(boardState, cartoonsGrid);
+      _score += 100; // Bonus for auto clear
+    });
   }
 
   void _collectCartoon(int r, int c) {
