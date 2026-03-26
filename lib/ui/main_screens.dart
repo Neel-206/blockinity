@@ -2,6 +2,7 @@ import 'package:blockinity/Controller/level_controller.dart';
 
 import 'package:blockinity/theme/app_colors.dart';
 import 'package:blockinity/ui/view/home_view.dart';
+import 'package:blockinity/ui/view/profile_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -162,30 +163,31 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildProfileView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person_rounded, size: 80, color: AppColors.primary),
-          const SizedBox(height: 20),
-          Text(
-            'PROFILE',
-            style: GoogleFonts.sourGummy(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'View your achievements here.',
-            style: GoogleFonts.poppins(
-              color: AppColors.subtitle,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+     return ProfileView();
+    // Center(
+    //   child: Column(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       Icon(Icons.person_rounded, size: 80, color: AppColors.primary),
+    //       const SizedBox(height: 20),
+    //       Text(
+    //         'PROFILE',
+    //         style: GoogleFonts.sourGummy(
+    //           fontSize: 32,
+    //           fontWeight: FontWeight.bold,
+    //         ),
+    //       ),
+    //       const SizedBox(height: 10),
+    //       Text(
+    //         'View your achievements here.',
+    //         style: GoogleFonts.poppins(
+    //           color: AppColors.subtitle,
+    //           fontWeight: FontWeight.w500,
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 
   Widget _buildBottomNav() {

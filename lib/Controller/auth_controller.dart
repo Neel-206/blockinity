@@ -13,6 +13,12 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     user.bindStream(_authService.authStateChanges);
+    // Automatically navigate to login when user becomes null (signs out)
+    ever(user, (User? u) {
+      if (u == null) {
+        Get.offAllNamed(AppRoutes.login);
+      }
+    });
     super.onInit();
   }
 

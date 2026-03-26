@@ -21,13 +21,14 @@ class _LevelScreenState extends State<LevelScreen> {
   void initState() {
     super.initState();
     levelController = Get.find<LevelController>();
-    
+
     if (Get.arguments is Map) {
       world = Get.arguments['world'];
       worldIndex = Get.arguments['index'];
     } else {
       // Fallback
-      world = Get.arguments ??
+      world =
+          Get.arguments ??
           WorldModel(
             title: 'WORLD 1',
             subtitle: 'NEON CUBES',
@@ -114,10 +115,7 @@ class _LevelScreenState extends State<LevelScreen> {
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: Icon(icon, color: iconColor, size: 24),
       ),
     );
@@ -157,7 +155,11 @@ class _LevelScreenState extends State<LevelScreen> {
   }
 
   Widget _buildLevelCard(
-      int level, bool isLocked, bool isCurrent, bool isCompleted) {
+    int level,
+    bool isLocked,
+    bool isCurrent,
+    bool isCompleted,
+  ) {
     return Column(
       children: [
         Expanded(
@@ -172,8 +174,8 @@ class _LevelScreenState extends State<LevelScreen> {
                 color: isLocked
                     ? const Color(0xffEDF2F7)
                     : isCurrent
-                        ? const Color(0xffFCEEE8)
-                        : AppColors.primary,
+                    ? const Color(0xffFCEEE8)
+                    : AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
                 border: isCurrent
                     ? Border.all(
@@ -188,13 +190,17 @@ class _LevelScreenState extends State<LevelScreen> {
                           color: AppColors.primary.withOpacity(0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
-                        )
+                        ),
                       ]
                     : [],
               ),
               child: Center(
                 child: isLocked
-                    ? const Icon(Icons.lock_rounded, color: Color(0xff94A3B8), size: 28)
+                    ? const Icon(
+                        Icons.lock_rounded,
+                        color: Color(0xff94A3B8),
+                        size: 28,
+                      )
                     : Text(
                         '$level',
                         style: GoogleFonts.sourGummy(
@@ -208,7 +214,10 @@ class _LevelScreenState extends State<LevelScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        _buildStars(isCompleted, level == world.currentLevel && world.currentLevel > 0),
+        _buildStars(
+          isCompleted,
+          level == world.currentLevel && world.currentLevel > 0,
+        ),
       ],
     );
   }
@@ -219,9 +228,10 @@ class _LevelScreenState extends State<LevelScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(3, (index) {
-        bool starFilled = isCompleted && (index < 3); // All 3 for completed levels
+        bool starFilled =
+            isCompleted && (index < 3); // All 3 for completed levels
         if (isAlmostDone && index == 2) starFilled = false; // Example 2 stars
-        
+
         return Icon(
           Icons.star_rounded,
           size: 16,
