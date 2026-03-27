@@ -61,7 +61,7 @@ class _GameScreenState extends State<GameScreen> {
   int _perfectFitsInLevel = 0;
 
   int get _targetScore =>
-      _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 150);
+      _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 200);
   // int get _obstacleCount => 0; // Removed unused getter
 
   final int rows = 10;
@@ -72,7 +72,7 @@ class _GameScreenState extends State<GameScreen> {
   int _collectedCartoons = 0;
   int get _targetCartoons => _isChallenge
       ? _challengeTargetCartoons
-      : min(3 + (_currentLevel ~/ 2), 10);
+      : min(3 + (_currentLevel ~/ 1.5).toInt(), 15);
 
   List<NextBlockItem> nextBlocks = [];
   int _idCounter = 0;
@@ -165,8 +165,8 @@ class _GameScreenState extends State<GameScreen> {
     positions.shuffle(Random(_currentLevel * 1009 + 3));
 
     // Improvement 3: Priority-based placement for early levels
-    if (_currentLevel < 10) {
-      // Prioritize center cells for "Easy" placement
+    if (_currentLevel < 6) {
+      // Prioritize center cells for "Easy" placement only for very early levels
       positions.sort((a, b) {
         bool aInCenter = _isCenter(a.dx.toInt(), a.dy.toInt());
         bool bInCenter = _isCenter(b.dx.toInt(), b.dy.toInt());
@@ -273,7 +273,17 @@ class _GameScreenState extends State<GameScreen> {
     // 2. Pick 3 blocks with guaranteed diversity
     // Slot 0: Strategic Help (Top performer)
     if (candidates.isNotEmpty) {
-      int range = min(3, candidates.length);
+      // Difficulty Scaling: Increase range of candidates as level increases
+      int range = 2; // Default: very helpful
+      if (_currentLevel > 20) {
+        range = 10;
+      } else if (_currentLevel > 10) {
+        range = 6;
+      } else if (_currentLevel > 5) {
+        range = 4;
+      }
+
+      range = min(range, candidates.length);
       var best = candidates[_blockRandom.nextInt(range)].key;
       nextBlocks.add(_createBlockItem(best, shapeColors));
     }
@@ -287,7 +297,9 @@ class _GameScreenState extends State<GameScreen> {
       return size <= 3;
     }).toList();
 
+    // Slot 1: Guaranteed Small/Versatile block (Always size <= 3)
     if (versatileCandidates.isNotEmpty) {
+      // Pick a small block for versatility
       nextBlocks.add(
         _createBlockItem(
           versatileCandidates[_blockRandom.nextInt(versatileCandidates.length)]
@@ -295,19 +307,34 @@ class _GameScreenState extends State<GameScreen> {
           shapeColors,
         ),
       );
-    } else if (candidates.length > 2) {
-      // Fallback: Pick a different one from Slot 0
-      nextBlocks.add(_createBlockItem(candidates[1].key, shapeColors));
+    } else if (candidates.isNotEmpty) {
+      // Fallback if no specific small blocks are found
+      nextBlocks.add(_createBlockItem(candidates[0].key, shapeColors));
     }
 
-    // Slot 2: Pure Random distribution from all possible shapes
+    // Slot 2: Higher chance for small-to-medium blocks (Mindful variety)
     if (candidates.isNotEmpty) {
-      nextBlocks.add(
-        _createBlockItem(
-          candidates[_blockRandom.nextInt(candidates.length)].key,
-          shapeColors,
-        ),
-      );
+      // 70% chance to pick another versatile/small block if available
+      if (_blockRandom.nextDouble() < 0.7 && versatileCandidates.isNotEmpty) {
+        nextBlocks.add(
+          _createBlockItem(
+            versatileCandidates[_blockRandom.nextInt(
+                  versatileCandidates.length,
+                )]
+                .key,
+            shapeColors,
+          ),
+        );
+      } else {
+        // Otherwise pick from the top 5 candidates
+        int range = min(5, candidates.length);
+        nextBlocks.add(
+          _createBlockItem(
+            candidates[_blockRandom.nextInt(range)].key,
+            shapeColors,
+          ),
+        );
+      }
     }
 
     _checkGameOver();
@@ -412,7 +439,7 @@ class _GameScreenState extends State<GameScreen> {
             int nc = tc + dir[1];
             if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
               adjacencyCount += 2;
-            } else if (boardState[nr][nc] != null) {
+            } else if (boardState[nr][nc] != null || cartoonsGrid[nr][nc]) {
               adjacencyCount += 3;
             }
           }
@@ -421,10 +448,95 @@ class _GameScreenState extends State<GameScreen> {
     }
     score += adjacencyCount * 2.5;
 
-    // 4. Size Balance
-    int shapeSize = 0;
-    for (var rList in shape) for (var val in rList) if (val == 1) shapeSize++;
-    if (shapeSize <= 2) score += 20.0;
+    // 4. Hole Penalty & Smoothness (Analyze empty space strategically)
+    // Penalize creating 1x1 holes (very hard to fill)
+    int holesCreated = 0;
+    for (int r = 0; r < shape.length; r++) {
+      for (int c = 0; c < shape[r].length; c++) {
+        if (shape[r][c] == 1) {
+          int tr = row + r;
+          int tc = col + c;
+          final neighbors = [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ];
+          for (var dir in neighbors) {
+            int nr = tr + dir[0];
+            int nc = tc + dir[1];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+              // If neighbor is empty now, check if it's trapped
+              if (boardState[nr][nc] == null && !cartoonsGrid[nr][nc]) {
+                bool isTrapped = true;
+                for (var d in neighbors) {
+                  int nnr = nr + d[0];
+                  int nnc = nc + d[1];
+                  if (nnr >= 0 && nnr < rows && nnc >= 0 && nnc < cols) {
+                    // Check if it will be surrounded after this placement
+                    bool willBeOccupied =
+                        (nnr >= row &&
+                        nnr < row + shape.length &&
+                        nnc >= col &&
+                        nnc < col + shape[0].length &&
+                        shape[nnr - row][nnc - col] == 1);
+                    if (boardState[nnr][nnc] == null &&
+                        !cartoonsGrid[nnr][nnc] &&
+                        !willBeOccupied) {
+                      isTrapped = false;
+                      break;
+                    }
+                  }
+                }
+                if (isTrapped) holesCreated++;
+              }
+            }
+          }
+        }
+      }
+    }
+    score -= holesCreated * 40; // Heavy penalty for creating holes
+
+    // 5. Grid Height Analysis (Keep board 'low' or 'compact' for strategy)
+    int maxHeight = 0;
+    for (int c = 0; c < cols; c++) {
+      for (int r = 0; r < rows; r++) {
+        if (boardState[r][c] != null || cartoonsGrid[r][c]) {
+          maxHeight = max(maxHeight, rows - r);
+          break;
+        }
+      }
+    }
+    score -= maxHeight * 5; // Reward keeping a low profile
+
+    // 6. Neighboring Cartoons (Direct strategy for modern target)
+    int cartoonNeighbors = 0;
+    for (int r = 0; r < shape.length; r++) {
+      for (int c = 0; c < shape[r].length; c++) {
+        if (shape[r][c] == 1) {
+          int tr = row + r;
+          int tc = col + c;
+          final neighbors = [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ];
+          for (var dir in neighbors) {
+            int nr = tr + dir[0];
+            int nc = tc + dir[1];
+            if (nr >= 0 &&
+                nr < rows &&
+                nc >= 0 &&
+                nc < cols &&
+                cartoonsGrid[nr][nc]) {
+              cartoonNeighbors++;
+            }
+          }
+        }
+      }
+    }
+    score += cartoonNeighbors * 15; // Reward being near targets
 
     return score;
   }
@@ -454,7 +566,9 @@ class _GameScreenState extends State<GameScreen> {
           'bestScore': Get.find<PlayerController>().highestScore.value,
           'level': _currentLevel,
           'stars': 0, // No stars on loss
-          'levelProgress': (_score / _targetScore).clamp(0.0, 1.0),
+          'levelProgress': _isChallenge
+              ? (_score / _targetScore).clamp(0.0, 1.0)
+              : (_collectedCartoons / _targetCartoons).clamp(0.0, 1.0),
           'isWin': false,
           'earnedCoins': _coinsEarnedInLevel,
           'earnedGems': _gemsEarnedInLevel,
@@ -497,7 +611,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _checkLevelProgression() {
-    bool scoreMet = _score >= _targetScore;
+    bool scoreMet = !_isChallenge || _score >= _targetScore;
     bool cartoonsMet = _collectedCartoons >= _targetCartoons;
 
     // Additional challenge objectives
@@ -672,11 +786,13 @@ class _GameScreenState extends State<GameScreen> {
         if (shape[r][c] == 1) {
           int targetR = row + r;
           int targetC = col + c;
-          if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols)
+          if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols) {
             return false;
+          }
           if (boardState[targetR][targetC] != null ||
-              cartoonsGrid[targetR][targetC])
+              cartoonsGrid[targetR][targetC]) {
             return false;
+          }
         }
       }
     }
@@ -774,8 +890,9 @@ class _GameScreenState extends State<GameScreen> {
         int tr = row + r;
         if (tr >= rows) continue;
         int count = 0;
-        for (int c = 0; c < cols; c++)
+        for (int c = 0; c < cols; c++) {
           if (boardState[tr][c] != null || cartoonsGrid[tr][c]) count++;
+        }
         if (count == cols - 1 || count == cols - 2) helpsCompleteLine = true;
       }
       if (helpsCompleteLine) _score += 10;
@@ -787,7 +904,6 @@ class _GameScreenState extends State<GameScreen> {
       // Update the board first to show the placed block
       boardNode.updateGrid(boardState, cartoonsGrid);
 
-      // IMPORTANT: Clear lines BEFORE checking for game over.
       // Clearing lines frees up space, preventing premature game over.
       _checkLines();
 
@@ -860,14 +976,14 @@ class _GameScreenState extends State<GameScreen> {
         }
 
         // Line clear score logic (Dramatically increased rewards)
-        if (linesCleared == 1)
+        if (linesCleared == 1) {
           _score += 20;
-        else if (linesCleared == 2)
-          _score += 80;
-        else if (linesCleared == 3)
-          _score += 180;
-        else if (linesCleared >= 4)
-          _score += 400;
+        } else if (linesCleared == 2){
+          _score += 80;}
+        else if (linesCleared == 3){
+          _score += 180;}
+        else if (linesCleared >= 4){
+          _score += 400;}
 
         // Multi-Line Bonus - increased to +20 per extra line
         if (linesCleared > 1) {
@@ -883,7 +999,10 @@ class _GameScreenState extends State<GameScreen> {
         _score += _combo * 10;
 
         // Visual Feedback & Blast Effects
-        _handleComboEffects(fullRows.isNotEmpty ? fullRows[0] : 0, fullCols.isNotEmpty ? fullCols[0] : 0);
+        _handleComboEffects(
+          fullRows.isNotEmpty ? fullRows[0] : 0,
+          fullCols.isNotEmpty ? fullCols[0] : 0,
+        );
 
         _linesClearedInLevel += linesCleared;
 
@@ -946,7 +1065,7 @@ class _GameScreenState extends State<GameScreen> {
       _triggerAutoClear();
     } else if (_combo >= 7) {
       title = "UNSTOPPABLE!";
-      subtitle = "Combo x${_combo} 🔥🔥";
+      subtitle = "Combo x$_combo 🔥🔥";
       color = Colors.deepPurple;
       boardNode.playBlastEffect(seedRow, seedCol, Colors.deepPurple, 3);
     }
@@ -999,49 +1118,54 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xffF8F9FB),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SpriteWidget(
-                bgNode,
-                transformMode: SpriteBoxTransformMode.letterbox,
-              ),
-            ),
-            Column(
-              children: [
-                _buildHeader(_currentLevel),
-                const SizedBox(height: 10),
-                _buildProgressBar(),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildDragTarget(),
-                  ),
+    return WillPopScope(
+      onWillPop: () {
+        return _alertDailog();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xffF8F9FB),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SpriteWidget(
+                  bgNode,
+                  transformMode: SpriteBoxTransformMode.letterbox,
                 ),
-                _buildNextBlocksSection(),
-                const SizedBox(height: 50),
-              ],
-            ),
-            if (_draggingItem != null)
-              Positioned(
-                left: _dragPosition.dx - _dragOffset.dx,
-                top: _dragPosition.dy - _dragOffset.dy,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: 0.9,
-                    child: _buildMiniShape(
-                      _draggingItem!.shape,
-                      _draggingItem!.color,
-                      blockSize: 45.0,
+              ),
+              Column(
+                children: [
+                  _buildHeader(_currentLevel),
+                  const SizedBox(height: 10),
+                  _buildProgressBar(),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildDragTarget(),
+                    ),
+                  ),
+                  _buildNextBlocksSection(),
+                  const SizedBox(height: 50),
+                ],
+              ),
+              if (_draggingItem != null)
+                Positioned(
+                  left: _dragPosition.dx - _dragOffset.dx,
+                  top: _dragPosition.dy - _dragOffset.dy,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.9,
+                      child: _buildMiniShape(
+                        _draggingItem!.shape,
+                        _draggingItem!.color,
+                        blockSize: 45.0,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1126,7 +1250,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildProgressBar() {
-    double progress = (_score / _targetScore).clamp(0.0, 1.0);
+    double progress = _isChallenge
+        ? (_score / _targetScore).clamp(0.0, 1.0)
+        : (_collectedCartoons / _targetCartoons).clamp(0.0, 1.0);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
@@ -1136,7 +1262,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               Expanded(
                 child: Text(
-                  _buildGoalString(),
+                  _buildTargetString(),
                   style: GoogleFonts.poppins(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1172,25 +1298,25 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  String _buildGoalString() {
+  String _buildTargetString() {
     if (!_isChallenge) {
-      return 'GOAL: $_targetScore | CARTOONS: $_collectedCartoons/$_targetCartoons';
+      return 'TARGET: $_collectedCartoons/$_targetCartoons';
     }
 
-    List<String> goals = [];
-    goals.add('SCORE: $_score/$_challengeTargetScore');
-    goals.add('TARGETS: $_collectedCartoons/$_challengeTargetCartoons');
+    List<String> targets = [];
+    targets.add('SCORE: $_score/$_challengeTargetScore');
+    targets.add('TARGETS: $_collectedCartoons/$_challengeTargetCartoons');
     if (_challengeTargetLines > 0) {
-      goals.add('LINES: $_linesClearedInLevel/$_challengeTargetLines');
+      targets.add('LINES: $_linesClearedInLevel/$_challengeTargetLines');
     }
     if (_challengeTargetCombos > 0) {
-      goals.add('COMBOS: $_combosAchievedInLevel/$_challengeTargetCombos');
+      targets.add('COMBOS: $_combosAchievedInLevel/$_challengeTargetCombos');
     }
     if (_challengeTargetPerfectFits > 0) {
-      goals.add('PERFECT: $_perfectFitsInLevel/$_challengeTargetPerfectFits');
+      targets.add('PERFECT: $_perfectFitsInLevel/$_challengeTargetPerfectFits');
     }
 
-    return goals.join(' | ');
+    return targets.join(' | ');
   }
 
   Widget _buildPauseButton() => Container(
@@ -1201,10 +1327,71 @@ class _GameScreenState extends State<GameScreen> {
       shape: BoxShape.circle,
     ),
     child: IconButton(
-      onPressed: () => Get.back(),
-      icon: const Icon(Icons.pause, color: Color(0xff2D3748), size: 28),
+      onPressed: () {
+        _alertDailog();
+      },
+      icon: const Icon(
+        Icons.arrow_back_ios_new_rounded,
+        color: Color(0xff2D3748),
+        size: 28,
+      ),
     ),
   );
+
+  Future<bool> _alertDailog() async {
+    final result = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(
+                'Are you sure?',
+                style: GoogleFonts.sourGummy(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff475569),
+                ),
+                
+              ),
+              content: Text(
+                'You want to leave the game?',
+                style: GoogleFonts.sourGummy(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xff475569),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'No',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xff475569),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                    Get.back(); // Go back to previous screen
+                  },
+                  child: Text(
+                    'Yes',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color:  AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+              );
+          },
+        );
+    return result ?? false;
+  }
 
   Widget _buildDragTarget() => ClipRRect(
     key: _boardKey,
@@ -1328,8 +1515,9 @@ class _GameScreenState extends State<GameScreen> {
       double spriteY = (localPos.dy - offsetY) / scale;
       int col = ((spriteX - 20) / 45.0).round();
       int row = ((spriteY - 20) / 45.0).round();
-      if (_canPlace(_draggingItem!.shape, row, col))
+      if (_canPlace(_draggingItem!.shape, row, col)) {
         _placeShape(_draggingItem!, row, col);
+      }
     }
     setState(() {
       _draggingItem = null;
