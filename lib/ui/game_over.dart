@@ -28,7 +28,7 @@ class GameOver extends StatelessWidget {
                 _buildGameOverTitle(title1, title2),
                 const SizedBox(height: 5),
                 _buildStarCard(stars, score),
-                const SizedBox(height: 20),
+                const SizedBox(height: 25),
                 _buildScoreRow(earnedCoins, earnedGems),
                 const SizedBox(height: 20),
                 _buildActionButtons(isWin),
@@ -172,14 +172,14 @@ class GameOver extends StatelessWidget {
             }),
           ),
           const SizedBox(height: 5),
-          Text(
-            'Great Effort!',
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFFF46B22),
-            ),
-          ),
+          // Text(
+          //   'Great Effort!',
+          //   style: GoogleFonts.poppins(
+          //     fontSize: 24,
+          //     fontWeight: FontWeight.bold,
+          //     color: const Color(0xFFF46B22),
+          //   ),
+          // ),
           const SizedBox(height: 20),
           Text(
             'SCORE ACHIEVED',

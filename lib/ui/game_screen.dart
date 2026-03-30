@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:blockinity/ui/game_over.dart';
+import 'package:blockinity/ui/view/transition_nodes.dart';
 import 'package:spritewidget/spritewidget.dart';
 
 class NextBlockItem {
@@ -34,6 +35,7 @@ class _GameScreenState extends State<GameScreen> {
   late NodeWithSize rootNode;
   late NodeWithSize bgNode;
   late BoardNode boardNode;
+  NodeWithSize? transitionNode;
   // final Random _random = Random();
 
   late Random _blockRandom;
@@ -59,6 +61,7 @@ class _GameScreenState extends State<GameScreen> {
   int _linesClearedInLevel = 0;
   int _combosAchievedInLevel = 0;
   int _perfectFitsInLevel = 0;
+  bool _levelCleared = false;
 
   int get _targetScore =>
       _isChallenge ? _challengeTargetScore : 200 + ((_currentLevel - 1) * 200);
@@ -558,31 +561,79 @@ class _GameScreenState extends State<GameScreen> {
 
     if (!canPlaceAny && nextBlocks.isNotEmpty) {
       Get.find<PlayerController>().addScore(_score);
-
-      Get.to(
-        () => const GameOver(),
-        arguments: {
-          'score': _score,
-          'bestScore': Get.find<PlayerController>().highestScore.value,
-          'level': _currentLevel,
-          'stars': 0, // No stars on loss
-          'levelProgress': _isChallenge
-              ? (_score / _targetScore).clamp(0.0, 1.0)
-              : (_collectedCartoons / _targetCartoons).clamp(0.0, 1.0),
-          'isWin': false,
-          'earnedCoins': _coinsEarnedInLevel,
-          'earnedGems': _gemsEarnedInLevel,
-        },
-      )?.then((result) {
-        if (result == 'retry') {
-          _resetGame();
-        } else if (result == 'next' && _score >= _targetScore) {
-          _nextLevel();
-        } else {
-          Get.back(); // Go home
-        }
-      });
+      _showTransitionOverlay(isWin: false);
     }
+  }
+
+  void _showTransitionOverlay({required bool isWin, bool isWorldClear = false}) {
+    setState(() {
+      final size = MediaQuery.of(context).size;
+      transitionNode = NodeWithSize(size);
+      
+      if (isWorldClear) {
+        int nextWorldIndex = (_currentLevel ~/ 20); // 1 for level 20
+        String worldName = "World ${nextWorldIndex + 1}";
+        transitionNode!.addChild(
+          WorldUnlockNode(
+            size: size,
+            worldTitle: "NEW WORLD UNLOCKED!\n$worldName",
+            onComplete: () {
+              setState(() => transitionNode = null);
+              _navigateToWorldScreen();
+            },
+          ),
+        );
+      } else {
+        transitionNode!.addChild(
+          LevelCompleteNode(
+            size: size,
+            isWin: isWin,
+            onComplete: () {
+              setState(() => transitionNode = null);
+              if (isWin) {
+                _actualShowLevelUpDialog();
+              } else {
+                _actualShowGameOver();
+              }
+            },
+          ),
+        );
+      }
+    });
+  }
+
+  void _navigateToWorldScreen() {
+    int nextWorldIndex = (_currentLevel ~/ 20); // 1 for level 20
+    Get.toNamed('/world', arguments: {
+      'justUnlocked': true,
+      'unlockedWorldIndex': nextWorldIndex, // Pass index of the NEW world
+    });
+  }
+
+  void _actualShowGameOver() {
+    Get.to(
+      () => const GameOver(),
+      arguments: {
+        'score': _score,
+        'bestScore': Get.find<PlayerController>().highestScore.value,
+        'level': _currentLevel,
+        'stars': 0, // No stars on loss
+        'levelProgress': _isChallenge
+            ? (_score / _targetScore).clamp(0.0, 1.0)
+            : (_collectedCartoons / _targetCartoons).clamp(0.0, 1.0),
+        'isWin': false,
+        'earnedCoins': _coinsEarnedInLevel,
+        'earnedGems': _gemsEarnedInLevel,
+      },
+    )?.then((result) {
+      if (result == 'retry') {
+        _resetGame();
+      } else if (result == 'next' && _score >= _targetScore) {
+        _nextLevel();
+      } else {
+        Get.back(); // Go home
+      }
+    });
   }
 
   void _resetGame() {
@@ -601,7 +652,9 @@ class _GameScreenState extends State<GameScreen> {
       _collectedCartoons = 0;
       _linesClearedInLevel = 0;
       _combosAchievedInLevel = 0;
+      _combosAchievedInLevel = 0;
       _perfectFitsInLevel = 0;
+      _levelCleared = false;
       nextBlocks.clear();
       _blockRandom = _isChallenge
           ? Random(_challengeSeed)
@@ -610,7 +663,7 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void _checkLevelProgression() {
+  Future<void> _checkLevelProgression() async {
     bool scoreMet = !_isChallenge || _score >= _targetScore;
     bool cartoonsMet = _collectedCartoons >= _targetCartoons;
 
@@ -623,11 +676,37 @@ class _GameScreenState extends State<GameScreen> {
         !_isChallenge || _perfectFitsInLevel >= _challengeTargetPerfectFits;
 
     if (scoreMet && cartoonsMet && linesMet && combosMet && fitsMet) {
+      if (_levelCleared) return;
+      _levelCleared = true;
+
       if (_isChallenge) {
         _showChallengeCompleteDialog();
       } else {
-        _showLevelUpDialog();
+        // Persistent progress update immediately - now awaited to ensure reliability
+        await _persistLevelCompletion();
+
+        if (_currentLevel % 20 == 0) {
+          _showTransitionOverlay(isWin: true, isWorldClear: true);
+        } else {
+          _showTransitionOverlay(isWin: true);
+        }
       }
+    }
+  }
+
+  Future<void> _persistLevelCompletion() async {
+    try {
+      final levelCtrl = Get.find<LevelController>();
+      final playerCtrl = Get.find<PlayerController>();
+
+      // Update controllers (Rx state updates synchronously)
+      await levelCtrl.completeLevel(_currentLevel);
+      playerCtrl.completeLevel(_currentLevel);
+      playerCtrl.addCoins(50); // Level clear reward
+
+      debugPrint('Level $_currentLevel completion persisted successfully.');
+    } catch (e) {
+      debugPrint('Error persisting level completion: $e');
     }
   }
 
@@ -723,7 +802,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showLevelUpDialog() {
+  void _actualShowLevelUpDialog() {
     Get.to(
       () => const GameOver(),
       arguments: {
@@ -748,14 +827,8 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _nextLevel() {
-    // Persistent progress update
-    Get.find<LevelController>().completeLevel(_currentLevel);
-
-    // Reward player gems and coins for completing a level
-    Get.find<PlayerController>().completeLevel(_currentLevel);
-    Get.find<PlayerController>().addCoins(50);
-
     setState(() {
+      _levelCleared = false;
       _currentLevel++;
       boardState = List.generate(rows, (_) => List.generate(cols, (_) => null));
       cartoonsGrid = List.generate(
@@ -1162,6 +1235,13 @@ class _GameScreenState extends State<GameScreen> {
                         blockSize: 45.0,
                       ),
                     ),
+                  ),
+                ),
+              if (transitionNode != null)
+                Positioned.fill(
+                  child: SpriteWidget(
+                    transitionNode!,
+                    transformMode: SpriteBoxTransformMode.letterbox,
                   ),
                 ),
             ],

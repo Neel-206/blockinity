@@ -31,13 +31,17 @@ class LevelService {
     if (user == null) return;
 
     try {
-      final currentUnlocked = await getUnlockedLevel();
-      if (levelNum > currentUnlocked) {
-        await _db.child('Users/${user.uid}/progress').update({
-          'unlockedLevel': levelNum,
-          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
-        });
-      }
+      // Direct update is generally safer and faster. 
+      // The controller already checks if it's higher than its local state.
+      await _db.child('Users/${user.uid}/progress').update({
+        'unlockedLevel': levelNum,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+      
+      // Also update the legacy path used by PlayerController for backward consistency
+      await _db.child('Users/${user.uid}').update({
+        'unlockedLevel': levelNum,
+      });
     } catch (e) {
       debugPrint('Error updating level progress: $e');
     }

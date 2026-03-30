@@ -48,7 +48,13 @@ class PlayerController extends GetxController {
       coins.value = data['coins'] ?? 0;
       gems.value = data['gems'] ?? 0;
       blocksCleared.value = data['blocksCleared'] ?? 0;
-      unlockedLevel.value = data['unlockedLevel'] ?? 0;
+      
+      // Handle potential nested structure for levels
+      if (data['progress'] != null && data['progress']['unlockedLevel'] != null) {
+        unlockedLevel.value = data['progress']['unlockedLevel'];
+      } else {
+        unlockedLevel.value = data['unlockedLevel'] ?? 0;
+      }
     }
   }
 
@@ -77,6 +83,8 @@ class PlayerController extends GetxController {
   void completeLevel(int level) {
     if (level > unlockedLevel.value) {
       unlockedLevel.value = level;
+      // We don't save here directly if LevelController already did it, 
+      // but for reliability we ensure it's saved to the shared path.
       _saveData({'unlockedLevel': unlockedLevel.value});
     }
     // Award gems for completing level

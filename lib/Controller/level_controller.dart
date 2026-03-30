@@ -1,5 +1,6 @@
 import 'package:blockinity/Services/level_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 class LevelController extends GetxController {
@@ -36,7 +37,9 @@ class LevelController extends GetxController {
   Future<void> completeLevel(int levelNum) async {
     if (levelNum > unlockedLevel.value) {
       unlockedLevel.value = levelNum;
+      debugPrint('LevelController: Local level updated to $levelNum');
       await _levelService.updateUnlockedLevel(levelNum);
+      debugPrint('LevelController: Remote level persistence triggered for $levelNum');
     }
   }
 

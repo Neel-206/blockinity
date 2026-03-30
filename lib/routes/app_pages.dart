@@ -20,11 +20,29 @@ class AppPages extends AppRoutes{
     GetPage(name: AppRoutes.register, page: () => RagisterScreen()),
     GetPage(name: AppRoutes.forgotPassword, page: () => ForgotPassword()),
     GetPage(name: AppRoutes.home, page: () => HomeScreen()),
-    GetPage(name: AppRoutes.world, page: () => WorldScreen()),
-    GetPage(name: AppRoutes.game, page: () => GameScreen()),  
-    GetPage(name: AppRoutes.levels, page: () => LevelScreen()),
+    GetPage(
+      name: AppRoutes.world,
+      page: () => WorldScreen(),
+      transition: Transition.circularReveal,
+    ),
+    GetPage(
+      name: AppRoutes.game,
+      page: () => GameScreen(),
+      transition: Transition.rightToLeftWithFade,
+      transitionDuration: const Duration(milliseconds: 500),
+    ),
+    GetPage(
+      name: AppRoutes.levels,
+      page: () => LevelScreen(),
+      transition: Transition.circularReveal,
+      transitionDuration: const Duration(milliseconds: 500),
+    ),
+    GetPage(
+      name: AppRoutes.over,
+      page: () => const GameOver(),
+      transition: Transition.downToUp,
+    ),
     GetPage(name: AppRoutes.gift, page: () => Dailygiftpage()),
-    GetPage(name: AppRoutes.over, page: () => GameOver()),
     GetPage(name: AppRoutes.challenges, page: () => const ChallengesCalendarScreen()),
     GetPage(name: AppRoutes.setting, page: () => const SettingsScreen()),
   ];

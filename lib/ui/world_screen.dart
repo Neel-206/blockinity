@@ -1,8 +1,10 @@
 import 'package:blockinity/Controller/level_controller.dart';
 import 'package:blockinity/theme/app_colors.dart';
+import 'package:blockinity/ui/view/transition_nodes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spritewidget/spritewidget.dart';
 
 enum WorldStatus { unlocked, active, locked, comingSoon }
 
@@ -34,6 +36,38 @@ class WorldScreen extends StatefulWidget {
 }
 
 class _WorldScreenState extends State<WorldScreen> {
+  NodeWithSize? transitionNode;
+  
+  @override
+  void initState() {
+    super.initState();
+    _checkUnlockAnimation();
+  }
+
+  void _checkUnlockAnimation() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = Get.arguments;
+      if (args is Map && args['justUnlocked'] == true) {
+        int index = args['unlockedWorldIndex'] ?? 0;
+        String name = _rawWorldsData[index].subtitle;
+
+        setState(() {
+          final size = MediaQuery.of(context).size;
+          transitionNode = NodeWithSize(size);
+          transitionNode!.addChild(
+            WorldUnlockNode(
+              size: size,
+              worldTitle: name,
+              onComplete: () {
+                setState(() => transitionNode = null);
+              },
+            ),
+          );
+        });
+      }
+    });
+  }
+
   final List<WorldModel> _rawWorldsData = [
     WorldModel(
       title: 'World 1',
@@ -163,22 +197,33 @@ class _WorldScreenState extends State<WorldScreen> {
     return Scaffold(
       backgroundColor: const Color(0xffF8F9FB),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildAppBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                child: Obx(() {
-                  return Column(
-                    children: [
-                      for (int i = 0; i < worldsData.length; i++)
-                        _buildWorldCard(worldsData[i], i),
-                    ],
-                  );
-                }),
-              ),
+            Column(
+              children: [
+                _buildAppBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                    child: Obx(() {
+                      return Column(
+                        children: [
+                          for (int i = 0; i < worldsData.length; i++)
+                            _buildWorldCard(worldsData[i], i),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ],
             ),
+            if (transitionNode != null)
+              Positioned.fill(
+                child: SpriteWidget(
+                  transitionNode!,
+                  transformMode: SpriteBoxTransformMode.letterbox,
+                ),
+              ),
           ],
         ),
       ),

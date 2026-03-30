@@ -137,7 +137,12 @@ class _HomeViewState extends State<HomeView>
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () {
+                splashColor: Colors.white.withOpacity(0.4),
+                highlightColor: Colors.white.withOpacity(0.2),
+                onTap: () async {
+                  // Small delay for tactile feel
+                  await Future.delayed(const Duration(milliseconds: 150));
+                  
                   final levelCtrl = Get.find<LevelController>();
                   // Resume from the next level after the highest completed one
                   final int nextLevel = levelCtrl.unlockedLevel.value + 1;
@@ -170,7 +175,6 @@ class _HomeViewState extends State<HomeView>
       ],
     );
   }
-
 
   Widget _buildMenuButtons() {
     return Padding(
@@ -311,7 +315,7 @@ class _HomeViewState extends State<HomeView>
             ),
           ),
 
-          // Notification Icon
+          // Notification Icon 
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
