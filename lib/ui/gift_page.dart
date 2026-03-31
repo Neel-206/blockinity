@@ -404,7 +404,6 @@ class _DailygiftpageState extends State<Dailygiftpage>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -439,7 +438,6 @@ class _DailygiftpageState extends State<Dailygiftpage>
     );
   }
 
-  // ── Top bar ───────────────────────────────────────────────────────────────
   Widget _buildTopBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
@@ -512,7 +510,7 @@ class _DailygiftpageState extends State<Dailygiftpage>
     );
   }
 
-  // ── 7-Day streak card ─────────────────────────────────────────────────────
+  // 7-Day streak card
   Widget _buildStreakCard() {
     return Obx(() {
       final activeDay = _pc.streakDayIndex.value; // 0-6
@@ -800,6 +798,7 @@ class _DailygiftpageState extends State<Dailygiftpage>
   Widget _buildAdButton() {
     return GestureDetector(
       onTap: () {
+        
         Get.snackbar(
           'Ad',
           'Watch an ad for +1 spin — coming soon!',

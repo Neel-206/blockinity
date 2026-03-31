@@ -28,64 +28,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildTopBar(context),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildPageHeader(),
                     const SizedBox(height: 25),
-                    
+
                     // Audio & Haptics Section
-                    _buildSectionHeader('Audio & Haptics', icon: Icons.tune_rounded),
+                    _buildSectionHeader(
+                      'Audio & Haptics',
+                      icon: Icons.tune_rounded,
+                    ),
                     _buildSettingsContainer([
-                      Obx(() => _buildToggleItem(
-                        icon: Icons.volume_up_rounded,
-                        color: const Color(0xFFE28B6B),
-                        title: 'Sound Effects',
-                        value: settingsController.soundEffects.value,
-                        onChanged: settingsController.toggleSound,
-                      )),
-                      Obx(() => _buildToggleItem(
-                        icon: Icons.music_note_rounded,
-                        color: const Color(0xFF7BAEEB),
-                        title: 'Music',
-                        value: settingsController.music.value,
-                        onChanged: settingsController.toggleMusic,
-                      )),
-                      Obx(() => _buildToggleItem(
-                        icon: Icons.vibration_rounded,
-                        color: const Color(0xFFA58BED),
-                        title: 'Vibration',
-                        value: settingsController.vibration.value,
-                        onChanged: settingsController.toggleVibration,
-                      )),
+                      Obx(
+                        () => _buildToggleItem(
+                          icon: Icons.volume_up_rounded,
+                          color: const Color(0xFFE28B6B),
+                          title: 'Sound Effects',
+                          value: settingsController.soundEffects.value,
+                          onChanged: settingsController.toggleSound,
+                        ),
+                      ),
+                      Obx(
+                        () => _buildToggleItem(
+                          icon: Icons.music_note_rounded,
+                          color: const Color(0xFF7BAEEB),
+                          title: 'Music',
+                          value: settingsController.music.value,
+                          onChanged: settingsController.toggleMusic,
+                        ),
+                      ),
+                      Obx(
+                        () => _buildToggleItem(
+                          icon: Icons.vibration_rounded,
+                          color: const Color(0xFFA58BED),
+                          title: 'Vibration',
+                          value: settingsController.vibration.value,
+                          onChanged: settingsController.toggleVibration,
+                        ),
+                      ),
                     ]),
-                    
+
                     const SizedBox(height: 30),
 
                     // Notifications Section
-                    _buildSectionHeader('Notifications', icon: Icons.notifications_rounded),
+                    _buildSectionHeader(
+                      'Notifications',
+                      icon: Icons.notifications_rounded,
+                    ),
                     _buildSettingsContainer([
-                      Obx(() => _buildToggleItem(
-                        icon: Icons.card_giftcard_rounded,
-                        color: const Color(0xFFE28B6B),
-                        title: 'Daily Rewards',
-                        value: settingsController.dailyRewardsNotify.value,
-                        onChanged: settingsController.toggleDailyRewards,
-                      )),
-                      Obx(() => _buildToggleItem(
-                        icon: Icons.calendar_today_rounded,
-                        color: const Color(0xFF7BAEEB),
-                        title: 'Event Updates',
-                        value: settingsController.eventUpdatesNotify.value,
-                        onChanged: settingsController.toggleEventUpdates,
-                      )),
+                      Obx(
+                        () => _buildToggleItem(
+                          icon: Icons.card_giftcard_rounded,
+                          color: const Color(0xFFE28B6B),
+                          title: 'Daily Rewards',
+                          value: settingsController.dailyRewardsNotify.value,
+                          onChanged: settingsController.toggleDailyRewards,
+                        ),
+                      ),
+                      Obx(
+                        () => _buildToggleItem(
+                          icon: Icons.calendar_today_rounded,
+                          color: const Color(0xFF7BAEEB),
+                          title: 'Event Updates',
+                          value: settingsController.eventUpdatesNotify.value,
+                          onChanged: settingsController.toggleEventUpdates,
+                        ),
+                      ),
                     ]),
 
                     const SizedBox(height: 30),
 
                     // Account Section
-                    _buildSectionHeader('Account', icon: Icons.person_pin_rounded, iconColor: const Color(0xFFA58BED)),
+                    _buildSectionHeader(
+                      'Account',
+                      icon: Icons.person_pin_rounded,
+                      iconColor: const Color(0xFFA58BED),
+                    ),
                     _buildAccountCard(authController, playerController),
                     const SizedBox(height: 15),
                     _buildCloudSaveItem(),
@@ -95,28 +118,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 30),
 
                     // Support Section
-                    _buildSectionHeader('Support & Info', icon: Icons.info_rounded, iconColor: const Color(0xFF64748B)),
+                    _buildSectionHeader(
+                      'Support & Info',
+                      icon: Icons.info_rounded,
+                      iconColor: const Color(0xFF64748B),
+                    ),
                     _buildSettingsContainer([
                       _buildListItem(
                         icon: Icons.help_outline_rounded,
                         color: const Color(0xFFA58BED),
                         title: 'Help Center',
-                        trailing: const Icon(Icons.open_in_new_rounded, size: 20, color: Color(0xFFCBD5E1)),
+                        trailing: const Icon(
+                          Icons.open_in_new_rounded,
+                          size: 20,
+                          color: Color(0xFFCBD5E1),
+                        ),
                       ),
                       _buildListItem(
                         icon: Icons.description_outlined,
                         color: const Color(0xFFA58BED),
                         title: 'Terms of Service',
-                        trailing: const Icon(Icons.chevron_right_rounded, size: 24, color: Color(0xFFCBD5E1)),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 24,
+                          color: Color(0xFFCBD5E1),
+                        ),
                       ),
                       _buildListItem(
                         icon: Icons.shield_outlined,
                         color: const Color(0xFFA58BED),
                         title: 'Privacy Policy',
-                        trailing: const Icon(Icons.chevron_right_rounded, size: 24, color: Color(0xFFCBD5E1)),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 24,
+                          color: Color(0xFFCBD5E1),
+                        ),
                       ),
                     ]),
-
                     const SizedBox(height: 40),
                     _buildVersionTag(),
                     const SizedBox(height: 20),
@@ -124,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-          //  _buildBottomNavBar(),
+            //  _buildBottomNavBar(),
           ],
         ),
       ),
@@ -134,28 +172,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildTopBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
         children: [
-          IconButton(
-            onPressed: () => Get.back(),
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF64748B)),
-          ),
-          Text(
-            'Blockinity',
-            style: GoogleFonts.sourGummy(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF64748B)),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2EAF4),
-              shape: BoxShape.circle,
+          Center(
+            child: Text(
+              'Blockinity',
+              style: GoogleFonts.sourGummy(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
             ),
-            child: const Icon(Icons.person, color: Color(0xFFA58BED), size: 24),
           ),
         ],
       ),
@@ -187,7 +221,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, {required IconData icon, Color? iconColor}) {
+  Widget _buildSectionHeader(
+    String title, {
+    required IconData icon,
+    Color? iconColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: Row(
@@ -309,12 +347,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAccountCard(AuthController authController, PlayerController playerController) {
+  Widget _buildAccountCard(
+    AuthController authController,
+    PlayerController playerController,
+  ) {
     return Obx(() {
       final user = authController.user.value;
       final name = user?.displayName ?? 'Player 1';
       final level = playerController.unlockedLevel.value;
-      
+
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -344,9 +385,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   width: 50,
                   height: 50,
                   color: Colors.white,
-                  child: user?.photoURL != null 
-                    ? Image.network(user!.photoURL!)
-                    : const Icon(Icons.person, color: AppColors.primary, size: 30),
+                  child: user?.photoURL != null
+                      ? Image.network(user!.photoURL!)
+                      : const Icon(
+                          Icons.person,
+                          color: AppColors.primary,
+                          size: 30,
+                        ),
                 ),
               ),
             ),
@@ -374,7 +419,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 30),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFCBD5E1),
+              size: 30,
+            ),
           ],
         ),
       );
@@ -403,7 +452,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: Color(0xFFE2EAF4),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.cloud_done_rounded, color: Color(0xFF0066FF), size: 20),
+            child: const Icon(
+              Icons.cloud_done_rounded,
+              color: Color(0xFF0066FF),
+              size: 20,
+            ),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -445,12 +498,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFFEF2F2),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFFFEE2E2), width: 1.5, style: BorderStyle.solid),
+          border: Border.all(
+            color: const Color(0xFFFEE2E2),
+            width: 1.5,
+            style: BorderStyle.solid,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+            const Icon(
+              Icons.logout_rounded,
+              color: Color(0xFFEF4444),
+              size: 20,
+            ),
             const SizedBox(width: 10),
             Text(
               'Sign Out',

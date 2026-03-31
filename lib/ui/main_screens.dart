@@ -164,30 +164,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildProfileView() {
      return ProfileView();
-    // Center(
-    //   child: Column(
-    //     mainAxisAlignment: MainAxisAlignment.center,
-    //     children: [
-    //       Icon(Icons.person_rounded, size: 80, color: AppColors.primary),
-    //       const SizedBox(height: 20),
-    //       Text(
-    //         'PROFILE',
-    //         style: GoogleFonts.sourGummy(
-    //           fontSize: 32,
-    //           fontWeight: FontWeight.bold,
-    //         ),
-    //       ),
-    //       const SizedBox(height: 10),
-    //       Text(
-    //         'View your achievements here.',
-    //         style: GoogleFonts.poppins(
-    //           color: AppColors.subtitle,
-    //           fontWeight: FontWeight.w500,
-    //         ),
-    //       ),
-    //     ],
-    //   ),
-    // );
   }
 
   Widget _buildBottomNav() {
@@ -222,19 +198,7 @@ class _HomeScreenState extends State<HomeScreen>
                   isActive: _selectedIndex == 0,
                   onTap: () => setState(() => _selectedIndex = 0),
                 ),
-                _buildNavItem(
-                  icon: Icons.shopping_bag_rounded,
-                  label: 'STORE',
-                  isActive: _selectedIndex == 1,
-                  onTap: () => setState(() => _selectedIndex = 1),
-                ),
-                const SizedBox(width: 60), // Space for FAB
-                _buildNavItem(
-                  icon: Icons.group_rounded,
-                  label: 'SOCIAL',
-                  isActive: _selectedIndex == 2,
-                  onTap: () => setState(() => _selectedIndex = 2),
-                ),
+                const SizedBox(width: 60), // Space for FAB,
                 _buildNavItem(
                   icon: Icons.person_rounded,
                   label: 'PROFILE',

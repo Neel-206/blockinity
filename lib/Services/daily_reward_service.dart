@@ -37,14 +37,6 @@ class DailyRewardService {
   String? get _uid => _auth.currentUser?.uid;
   DatabaseReference get _spinRef => _db.child('Users/${_uid!}/spinData');
 
-  /// Checks & records a spin attempt.
-  ///
-  /// Flow:
-  ///   1. Read lastSpinTime + streakCount from Firebase
-  ///   2. If < 24 h since last spin → return SpinResult(allowed: false)
-  ///   3. Calculate new streak day (reset to 0 after day 7)
-  ///   4. Write updated lastSpinTime + streakCount to Firebase
-  ///   5. Return SpinResult(allowed: true, streakDayIndex: ...)
   Future<SpinResult> attemptSpin() async {
     if (_uid == null) {
       return const SpinResult(allowed: false, secondsUntilNext: 0, streakDayIndex: 0);
