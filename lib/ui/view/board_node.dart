@@ -217,8 +217,8 @@ class BoardNode extends Node {
 
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(rect.left + 4, rect.top + 4, rect.width - 12, 10),
-              const Radius.circular(4),
+              Rect.fromLTWH(rect.left + rect.width * 0.1, rect.top + rect.height * 0.1, rect.width * 0.7, rect.height * 0.25),
+              Radius.circular(rect.width * 0.1),
             ),
             highlightPaint,
           );

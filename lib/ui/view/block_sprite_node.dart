@@ -56,8 +56,8 @@ class _SingleBlockNode extends Node {
     
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(4, 4, size.width - 12, 10),
-        const Radius.circular(4),
+        Rect.fromLTWH(size.width * 0.1, size.height * 0.1, size.width * 0.7, size.height * 0.25),
+        Radius.circular(size.width * 0.1),
       ),
       highlightPaint,
     );
