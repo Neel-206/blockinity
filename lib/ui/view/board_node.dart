@@ -18,6 +18,7 @@ class BoardNode extends Node {
   List<List<int>>? _previewShape;
   Offset? _previewPos; // grid row, col
   Color? _previewColor;
+  bool _isPreviewValid = true;
 
   BoardNode({
     this.rows = 10,
@@ -153,10 +154,11 @@ class BoardNode extends Node {
     );
   }
 
-  void updatePreview(List<List<int>>? shape, Offset? pos, Color? color) {
+  void updatePreview(List<List<int>>? shape, Offset? pos, Color? color, {bool isValid = true}) {
     _previewShape = shape;
     _previewPos = pos;
     _previewColor = color;
+    _isPreviewValid = isValid;
   }
 
   @override
@@ -200,7 +202,7 @@ class BoardNode extends Node {
           // Draw premium occupied block matching _SingleBlockNode
           final blockPaint = Paint()
             ..color = isPreview
-                ? (_previewColor ?? Colors.grey).withOpacity(0.4)
+                ? (_isPreviewValid ? Colors.greenAccent : Colors.red).withOpacity(0.4)
                 : cellColor!
             ..style = PaintingStyle.fill;
 

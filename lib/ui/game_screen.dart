@@ -1547,7 +1547,7 @@ class _GameScreenState extends State<GameScreen> {
         });
       },
       child: Opacity(
-        opacity: isDragging ? 0.3 : 1.0,
+        opacity: isDragging ? 0.0 : 1.0,
         child: _buildMiniShape(item.shape, item.color, blockSize: 24.0),
       ),
     );
@@ -1566,13 +1566,19 @@ class _GameScreenState extends State<GameScreen> {
       double offsetY = (size.height - 500.0 * scale) / 2.0;
       double spriteX = (localPos.dx - offsetX) / scale;
       double spriteY = (localPos.dy - offsetY) / scale;
-      int col = ((spriteX - 20) / 45.0).round();
-      int row = ((spriteY - 20) / 45.0).round();
-      if (_canPlace(_draggingItem!.shape, row, col)) {
+      double exactCol = (spriteX - 20) / 45.0;
+      double exactRow = (spriteY - 20) / 45.0;
+      int col = exactCol.round();
+      int row = exactRow.round();
+
+      // Show preview if we are over the board area
+      if (row >= -2 && row < rows + 2 && col >= -2 && col < cols + 2) {
+        bool isValid = _canPlace(_draggingItem!.shape, row, col);
         boardNode.updatePreview(
           _draggingItem!.shape,
           Offset(row.toDouble(), col.toDouble()),
           _draggingItem!.color,
+          isValid: isValid,
         );
       } else {
         boardNode.updatePreview(null, null, null);
