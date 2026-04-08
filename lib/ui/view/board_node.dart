@@ -12,6 +12,7 @@ class BoardNode extends Node {
   // Grid state: stores the color of each cell, null if empty
   late List<List<Color?>> _grid;
   late List<List<bool>> _cartoonsGrid;
+  late List<List<bool>> _frozenCartoonsGrid;
   ui.Image? cartoonImage;
 
   // Preview state
@@ -31,11 +32,16 @@ class BoardNode extends Node {
       rows,
       (r) => List.generate(cols, (c) => false),
     );
+    _frozenCartoonsGrid = List.generate(
+      rows,
+      (r) => List.generate(cols, (c) => false),
+    );
   }
 
-  void updateGrid(List<List<Color?>> newGrid, List<List<bool>> newCartoons) {
+  void updateGrid(List<List<Color?>> newGrid, List<List<bool>> newCartoons, List<List<bool>> newFrozen) {
     _grid = newGrid;
     _cartoonsGrid = newCartoons;
+    _frozenCartoonsGrid = newFrozen;
   }
 
   void playPlacementEffect(int row, int col, Color color) {
@@ -89,6 +95,15 @@ class BoardNode extends Node {
 
   void playBlastEffect(int row, int col, Color color, int intensity) {
     final effect = BlastEffectNode(color, intensity: intensity);
+    effect.position = Offset(
+      col * cellSize + cellSize / 2,
+      row * cellSize + cellSize / 2,
+    );
+    addChild(effect);
+  }
+
+  void playGlassBreakEffect(int row, int col) {
+    final effect = GlassBreakEffectNode();
     effect.position = Offset(
       col * cellSize + cellSize / 2,
       row * cellSize + cellSize / 2,
@@ -242,6 +257,9 @@ class BoardNode extends Node {
             width: imgSize,
             height: imgSize,
           );
+
+          bool isFrozen = _frozenCartoonsGrid[r][c];
+
           canvas.drawImageRect(
             cartoonImage!,
             Rect.fromLTWH(
@@ -253,6 +271,114 @@ class BoardNode extends Node {
             targetRect,
             Paint(),
           );
+
+          if (isFrozen) {
+            canvas.save();
+            // Create a rect that matches the EXACT grid cell (with 2px padding for clean look)
+            final cellRect = Rect.fromLTWH(
+              c * cellSize + 2,
+              r * cellSize + 2,
+              cellSize - 4,
+              cellSize - 4,
+            );
+            
+            // 0. Clip to the cell boundaries to prevent bleeding
+            canvas.clipRect(cellRect.inflate(2)); 
+
+            // HIGH-QUALITY GLASSY EFFECT
+            final RRect glassRRect = RRect.fromRectAndRadius(cellRect, const Radius.circular(10));
+            final glassRect = cellRect; // Use local ref for convenience
+
+            // 1. Subtle Inner Depth (Instead of outer shadow)
+            final depthPaint = Paint()
+              ..color = Colors.black.withOpacity(0.2)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3.0
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+            canvas.drawRRect(glassRRect, depthPaint);
+            
+            // 2. Main Glass Body
+            final glassPaint = Paint()
+              ..shader = ui.Gradient.linear(
+                glassRect.topLeft,
+                glassRect.bottomRight,
+                [
+                  Colors.white.withOpacity(0.45),
+                  Colors.white.withOpacity(0.15),
+                  Colors.blue.withOpacity(0.15),
+                  Colors.white.withOpacity(0.25),
+                ],
+                [0.0, 0.4, 0.6, 1.0],
+              )
+              ..style = PaintingStyle.fill;
+            
+            canvas.drawRRect(glassRRect, glassPaint);
+
+            // 3. Inner Edge Highlight (Frosting)
+            final edgeHighlightPaint = Paint()
+              ..shader = ui.Gradient.linear(
+                glassRect.topLeft,
+                glassRect.bottomRight,
+                [
+                  Colors.white.withOpacity(0.7),
+                  Colors.white.withOpacity(0.1),
+                ],   
+              )
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.0;
+            canvas.drawRRect(glassRRect.deflate(0.5), edgeHighlightPaint);
+
+            // 4. Diagonal Glare Streak
+            final glarePaint = Paint()
+              ..shader = ui.Gradient.linear(
+                glassRect.topLeft,
+                glassRect.bottomRight,
+                [
+                  Colors.white.withOpacity(0.0),
+                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.0),
+                ],
+                [0.3, 0.5, 0.7],
+              )
+              ..style = PaintingStyle.fill;
+            
+            final glarePath = Path()
+              ..moveTo(glassRect.left, glassRect.top + cellSize * 0.2)
+              ..lineTo(glassRect.left + cellSize * 0.2, glassRect.top)
+              ..lineTo(glassRect.right, glassRect.bottom - cellSize * 0.2)
+              ..lineTo(glassRect.right - cellSize * 0.2, glassRect.bottom)
+              ..close();
+            
+            canvas.drawPath(glarePath, glarePaint);
+
+            // 5. Corner Specular Reflection
+            final highlightPaint = Paint()
+              ..shader = ui.Gradient.radial(
+                glassRect.topLeft.translate(cellSize * 0.1, cellSize * 0.1),
+                cellSize * 0.2,
+                [
+                  Colors.white.withOpacity(0.7),
+                  Colors.white.withOpacity(0.0),
+                ],
+              )
+              ..style = PaintingStyle.fill;
+            
+            canvas.drawCircle(
+              glassRect.topLeft.translate(cellSize * 0.1, cellSize * 0.1),
+              cellSize * 0.15,
+              highlightPaint,
+            );
+            
+            // 6. Polished Border
+            final borderPaint = Paint()
+              ..color = Colors.white.withOpacity(0.6)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.0;
+            
+            canvas.drawRRect(glassRRect, borderPaint);
+
+            canvas.restore();
+          }
         }
       }
     }

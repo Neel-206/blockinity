@@ -155,6 +155,142 @@ class BlastEffectNode extends Node {
   }
 }
 
+class GlassBreakEffectNode extends Node {
+  double _life = 1.0;
+  final List<_GlassShard> _shards = [];
+  final List<_GlassDust> _dust = [];
+  final Random _random = Random();
+
+  GlassBreakEffectNode() {
+    // 1. Create main fragments
+    for (int i = 0; i < 28; i++) {
+        _shards.add(_GlassShard(_random));
+    }
+    // 2. Create fine glass dust
+    for (int i = 0; i < 20; i++) {
+        _dust.add(_GlassDust(_random));
+    }
+  }
+
+  @override
+  void update(double dt) {
+    _life -= dt * 1.5;
+    if (_life <= 0) {
+      removeFromParent();
+    }
+    for (var shard in _shards) {
+        shard.update(dt);
+    }
+    for (var d in _dust) {
+        d.update(dt);
+    }
+  }
+
+  @override
+  void paint(Canvas canvas) {
+    if (_life <= 0) return;
+
+    final paint = Paint()
+      ..color = Colors.blue.withOpacity(_life.clamp(0.0, 0.4))
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = Colors.white.withOpacity(_life.clamp(0.0, 0.4))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5;
+
+    // Paint Dust first
+    for (var d in _dust) {
+        d.paint(canvas, _life);
+    }
+
+    // Paint Shards
+    for (var shard in _shards) {
+        shard.paint(canvas, paint, borderPaint);
+    }
+  }
+}
+
+class _GlassShard {
+    Offset pos = Offset.zero;
+    late Offset velocity;
+    late List<Offset> points;
+    double rotation = 0;
+    late double rotationSpeed;
+    late double sizeScale;
+
+    _GlassShard(Random random) {
+        double angle = random.nextDouble() * 2 * pi;
+        // Stronger initial burst
+        double speed = random.nextDouble() * 250 + 80;
+        velocity = Offset(cos(angle) * speed, sin(angle) * speed);
+        rotationSpeed = (random.nextDouble() - 0.5) * 15;
+        
+        // Varying sizes
+        sizeScale = random.nextDouble() * 0.8 + 0.2;
+            
+        int numPoints = random.nextInt(3) + 3; // 3 to 5 points
+        points = List.generate(numPoints, (i) {
+            double a = (i * 2 * pi) / numPoints;
+            double r = (random.nextDouble() * 12 + 4) * sizeScale;
+            return Offset(cos(a) * r, sin(a) * r);
+        });
+    }
+
+    void update(double dt) {
+        pos += velocity * dt;
+        velocity += const Offset(0, 450) * dt; // Stronger Gravity
+        rotation += rotationSpeed * dt;
+    }
+
+    void paint(Canvas canvas, Paint fill, Paint stroke) {
+        canvas.save();
+        canvas.translate(pos.dx, pos.dy);
+        canvas.rotate(rotation);
+        
+        final path = Path();
+        path.moveTo(points[0].dx, points[0].dy);
+        for (int i = 1; i < points.length; i++) {
+            path.lineTo(points[i].dx, points[i].dy);
+        }
+        path.close();
+        
+        canvas.drawPath(path, fill);
+        canvas.drawPath(path, stroke);
+        
+        // Add a "glint" catch light line
+        final glintPaint = Paint()
+            ..color = Colors.white.withOpacity(0.8)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0;
+        canvas.drawLine(points[0], points[points.length ~/ 2], glintPaint);
+
+        canvas.restore();
+    }
+}
+
+class _GlassDust {
+    Offset pos = Offset.zero;
+    late Offset velocity;
+    final double radius;
+
+    _GlassDust(Random random) : radius = random.nextDouble() * 1.5 + 0.5 {
+        double angle = random.nextDouble() * 2 * pi;
+        double speed = random.nextDouble() * 120 + 20;
+        velocity = Offset(cos(angle) * speed, sin(angle) * speed);
+    }
+
+    void update(double dt) {
+        pos += velocity * dt;
+        velocity *= 0.95; // Air resistance
+    }
+
+    void paint(Canvas canvas, double life) {
+        final p = Paint()..color = Colors.white.withOpacity(life * 0.4);
+        canvas.drawCircle(pos, radius, p);
+    }
+}
+
 class ComboTextNode extends Node {
   final String text;
   final Color color;

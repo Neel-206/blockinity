@@ -71,6 +71,7 @@ class _GameScreenState extends State<GameScreen> {
   final int cols = 8;
   late List<List<Color?>> boardState;
   late List<List<bool>> cartoonsGrid;
+  late List<List<bool>> frozenCartoonsGrid;
   ui.Image? _cartoonImage;
   int _collectedCartoons = 0;
   int get _targetCartoons => _isChallenge
@@ -115,6 +116,10 @@ class _GameScreenState extends State<GameScreen> {
       rows,
       (_) => List.generate(cols, (_) => false),
     );
+    frozenCartoonsGrid = List.generate(
+      rows,
+      (_) => List.generate(cols, (_) => false),
+    );
     rootNode = NodeWithSize(const Size(400, 500));
 
     bgNode = NodeWithSize(const Size(800, 800));
@@ -131,7 +136,7 @@ class _GameScreenState extends State<GameScreen> {
   void _setupGameArena() {
     boardNode = BoardNode(rows: rows, cols: cols, cellSize: 45.0, padding: 1.5);
     boardNode.position = const Offset(20, 20);
-    boardNode.updateGrid(boardState, cartoonsGrid);
+    boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
     rootNode.addChild(boardNode);
   }
 
@@ -144,6 +149,7 @@ class _GameScreenState extends State<GameScreen> {
           setState(() {
             _cartoonImage = image;
             boardNode.cartoonImage = _cartoonImage;
+            boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
           });
         }
       });
@@ -188,6 +194,14 @@ class _GameScreenState extends State<GameScreen> {
       int c = pos.dy.toInt();
       if (!_isNearExisting(r, c)) {
         cartoonsGrid[r][c] = true;
+        // Improvement: Freeze targets in higher levels
+        if (_currentLevel > 15) {
+          // Increase freeze probability with level
+          double freezeProb = min(0.3 + (_currentLevel / 150), 0.8);
+          if (_blockRandom.nextDouble() < freezeProb) {
+            frozenCartoonsGrid[r][c] = true;
+          }
+        }
         placedCount++;
       }
     }
@@ -200,6 +214,9 @@ class _GameScreenState extends State<GameScreen> {
         int c = pos.dy.toInt();
         if (!cartoonsGrid[r][c]) {
           cartoonsGrid[r][c] = true;
+          if (_currentLevel > 30 && _blockRandom.nextDouble() < 0.5) {
+            frozenCartoonsGrid[r][c] = true;
+          }
           placedCount++;
         }
       }
@@ -645,7 +662,7 @@ class _GameScreenState extends State<GameScreen> {
       );
       // _placeObstacles(); // Removed gray blocks as per user request
       _setupTargets();
-      boardNode.updateGrid(boardState, cartoonsGrid);
+      boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
       _score = 0;
       _combo = 0;
       _coinsEarnedInLevel = 0;
@@ -837,7 +854,7 @@ class _GameScreenState extends State<GameScreen> {
       );
       // _placeObstacles(); // Removed gray blocks as per user request
       _setupTargets();
-      boardNode.updateGrid(boardState, cartoonsGrid);
+      boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
       _score = 0;
       _combo = 0;
       _coinsEarnedInLevel = 0;
@@ -975,7 +992,7 @@ class _GameScreenState extends State<GameScreen> {
       nextBlocks.removeWhere((b) => b.id == item.id);
 
       // Update the board first to show the placed block
-      boardNode.updateGrid(boardState, cartoonsGrid);
+      boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
 
       // Clearing lines frees up space, preventing premature game over.
       _checkLines();
@@ -1034,7 +1051,7 @@ class _GameScreenState extends State<GameScreen> {
 
         for (var key in collectedThisTurn) {
           var parts = key.split(',');
-          _collectCartoon(int.parse(parts[0]), int.parse(parts[1]));
+          _interactWithTarget(int.parse(parts[0]), int.parse(parts[1]));
         }
 
         // Cartoon collection score - increased to 50 pts per cartoon
@@ -1094,7 +1111,7 @@ class _GameScreenState extends State<GameScreen> {
         Get.find<PlayerController>().addCoins(earnedCoins);
         Get.find<PlayerController>().addScore(_score);
 
-        boardNode.updateGrid(boardState, cartoonsGrid);
+        boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
 
         // 6. Board Clear Bonus - increased to +500 jackpot
         bool isBoardEmpty = true;
@@ -1157,17 +1174,30 @@ class _GameScreenState extends State<GameScreen> {
     int randomRow = Random().nextInt(rows);
     setState(() {
       for (int c = 0; c < cols; c++) {
-        if (boardState[randomRow][c] != null) {
-          boardState[randomRow][c] = null;
+          if (boardState[randomRow][c] != null) {
+            boardState[randomRow][c] = null;
+          }
+          if (cartoonsGrid[randomRow][c]) {
+            _interactWithTarget(randomRow, c);
+          }
         }
-        if (cartoonsGrid[randomRow][c]) {
-          _collectCartoon(randomRow, c);
-        }
-      }
       boardNode.playLineClearEffect(randomRow, true);
-      boardNode.updateGrid(boardState, cartoonsGrid);
+      boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
       _score += 100; // Bonus for auto clear
     });
+  }
+
+  void _interactWithTarget(int r, int c) {
+    if (frozenCartoonsGrid[r][c]) {
+      setState(() {
+        frozenCartoonsGrid[r][c] = false;
+        // Shatter/Unfreeze glass effect
+        boardNode.playGlassBreakEffect(r, c);
+        boardNode.updateGrid(boardState, cartoonsGrid, frozenCartoonsGrid);
+      });
+    } else {
+      _collectCartoon(r, c);
+    }
   }
 
   void _collectCartoon(int r, int c) {
