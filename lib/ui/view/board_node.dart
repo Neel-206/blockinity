@@ -249,16 +249,16 @@ class BoardNode extends Node {
 
         // Draw the cartoon target centered inside the cell
         if (_cartoonsGrid[r][c] && cartoonImage != null) {
-          final double imgSize = cellSize * 1.5;
+          bool isFrozen = _frozenCartoonsGrid[r][c];
+          final double imgSize = isFrozen ? cellSize * 1.2 : cellSize * 1.5;
           final double centerX = c * cellSize + cellSize / 2;
           final double centerY = r * cellSize + cellSize / 2;
+
           final targetRect = Rect.fromCenter(
             center: Offset(centerX, centerY),
             width: imgSize,
             height: imgSize,
-          );
-
-          bool isFrozen = _frozenCartoonsGrid[r][c];
+          ); 
 
           canvas.drawImageRect(
             cartoonImage!,
@@ -305,7 +305,7 @@ class BoardNode extends Node {
                 [
                   Colors.white.withOpacity(0.45),
                   Colors.white.withOpacity(0.15),
-                  Colors.blue.withOpacity(0.15),
+                  Colors.blue.withOpacity(0.30),
                   Colors.white.withOpacity(0.25),
                 ],
                 [0.0, 0.4, 0.6, 1.0],
