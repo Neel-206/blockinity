@@ -196,7 +196,7 @@ class BoardNode extends Node {
 
         // Check if this cell is part of the preview
         bool isPreview = false;
-        if (_previewShape != null && _previewPos != null) {
+        if (_previewShape != null && _previewPos != null && _isPreviewValid) {
           int startR = _previewPos!.dx.toInt();
           int startC = _previewPos!.dy.toInt();
 
@@ -217,7 +217,7 @@ class BoardNode extends Node {
           // Draw premium occupied block matching _SingleBlockNode
           final blockPaint = Paint()
             ..color = isPreview
-                ? (_isPreviewValid ? Colors.greenAccent : Colors.red).withOpacity(0.4)
+                ? (_previewColor ?? Colors.white).withOpacity(0.35)
                 : cellColor!
             ..style = PaintingStyle.fill;
 

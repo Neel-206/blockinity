@@ -594,7 +594,7 @@ class _GameScreenState extends State<GameScreen> {
           WorldUnlockNode(
             size: size,
             worldTitle: "NEW WORLD UNLOCKED!\n$worldName",
-            onComplete: () {
+            onComplete: () {     
               setState(() => transitionNode = null);
               _navigateToWorldScreen();
             },
